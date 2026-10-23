@@ -204,15 +204,36 @@ class MainActivity : Activity() {
             if (HomeOverrideService.isEnabled(this)) "ปุ่ม Home: เปิด" else "ปุ่ม Home: ปิด"
     }
 
-    /** พาไปเปิด service ในหน้า การช่วยเหลือพิเศษ (Accessibility) */
+    private val serviceId get() = "$packageName/${HomeOverrideService::class.java.name}"
+
+    /**
+     * เปิด/ปิดการแทนที่ปุ่ม Home
+     * - ถ้าได้สิทธิ์ WRITE_SECURE_SETTINGS (adb pm grant ครั้งเดียว) → สลับได้ทันทีในแอป
+     * - ไม่งั้น → พาไปหน้าการช่วยเหลือพิเศษ / แสดงคำสั่ง adb
+     */
     private fun setupHomeButton() {
         val on = HomeOverrideService.isEnabled(this)
+        if (checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            val cr = contentResolver
+            val list = (Settings.Secure.getString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: "")
+                .split(":").filter { it.isNotBlank() && !it.startsWith("$packageName/") }.toMutableList()
+            if (!on) list += serviceId
+            Settings.Secure.putString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, list.joinToString(":"))
+            Settings.Secure.putInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, if (list.isEmpty()) 0 else 1)
+            handler.postDelayed({ updateHomeBtn() }, 400)
+            Toast.makeText(this, if (on) "ปิดการแทนที่ปุ่ม Home แล้ว" else "เปิดการแทนที่ปุ่ม Home แล้ว", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val opened = listOf(
+            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
+            Intent().setClassName("com.android.tv.settings", "com.android.tv.settings.accessibility.AccessibilityActivity"),
+            Intent().setClassName("com.tcl.settings", "com.tcl.settings.accessibility.AccessibilityActivity"),
+        ).any { it.resolveActivity(packageManager) != null && launch(it, quiet = true) }
+        if (opened) return
         AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
             .setTitle("แทนที่ปุ่ม Home")
-            .setMessage(if (on) "เปิดใช้อยู่แล้ว — ปุ่ม Home จะมาที่ launcher นี้\n\nปิดได้ที่ ตั้งค่า → การช่วยเหลือพิเศษ → divlab Launcher (ปุ่ม Home)"
-                else "ไปที่ ตั้งค่า → การช่วยเหลือพิเศษ → divlab Launcher (ปุ่ม Home) → เปิด\n\nจากนั้นกดปุ่ม Home บนรีโมตจะมาที่ launcher นี้เสมอ")
-            .setPositiveButton("เปิดหน้าตั้งค่า") { _, _ -> launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-            .setNegativeButton("ปิด", null)
+            .setMessage("ทีวีรุ่นนี้ไม่มีหน้าการช่วยเหลือพิเศษให้เปิดจากแอป\n\nรันคำสั่งนี้บนคอมพิวเตอร์ครั้งเดียว แล้วกดปุ่มนี้อีกครั้ง:\n\nadb shell pm grant $packageName android.permission.WRITE_SECURE_SETTINGS")
+            .setPositiveButton("ตกลง", null)
             .show()
     }
 

@@ -35,5 +35,6 @@
     <androidx.recyclerview.widget.RecyclerView android:id="@+id/grid"
         android:layout_width="match_parent" android:layout_height="250dp" android:layout_gravity="bottom" android:layout_marginBottom="16dp"
         android:paddingStart="36dp" android:paddingEnd="36dp" android:paddingTop="22dp" android:paddingBottom="8dp"
-        android:clipToPadding="false" android:clipChildren="false" android:scrollbars="none" />
+        android:clipToPadding="true" android:clipChildren="false" android:scrollbars="none"
+        android:fadingEdgeLength="24dp" android:requiresFadingEdge="vertical" />
 </FrameLayout>
