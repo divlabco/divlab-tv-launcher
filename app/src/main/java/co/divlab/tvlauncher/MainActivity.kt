@@ -32,6 +32,10 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private val colorCache = HashMap<String, IntArray>()
     private var moving: String? = null
+    private lateinit var netIcon: android.widget.ImageView
+    private lateinit var netName: TextView
+    private lateinit var tvName: TextView
+    private var netCallback: android.net.ConnectivityManager.NetworkCallback? = null
     private var showHidden = false
     private var focused: AppItem? = null
     private var firstLoad = true
@@ -40,6 +44,7 @@ class MainActivity : Activity() {
         override fun run() {
             timeView.text = ThaiDate.time()
             dateView.text = ThaiDate.date()
+            updateStatus()
             handler.postDelayed(this, 15_000)
         }
     }
@@ -54,6 +59,12 @@ class MainActivity : Activity() {
         dateView = findViewById(R.id.date)
         btnHidden = findViewById(R.id.btnHidden)
         grid = findViewById(R.id.grid)
+        netIcon = findViewById(R.id.netIcon)
+        netName = findViewById(R.id.netName)
+        tvName = findViewById(R.id.tvName)
+        watchNetwork()
+        if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+            requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), 1) // จำเป็นสำหรับอ่านชื่อ Wi-Fi
 
         adapter = AppAdapter(onFocus = ::showHero, onClick = { launch(it.intent) }, onLong = ::showMenu)
         grid.layoutManager = GridLayoutManager(this, COLUMNS)
@@ -65,6 +76,12 @@ class MainActivity : Activity() {
         findViewById<TextView>(R.id.btnWifi).setOnClickListener { launch(Intent(Settings.ACTION_WIFI_SETTINGS)) }
         findViewById<TextView>(R.id.btnInput).setOnClickListener { openInputs() }
         findViewById<TextView>(R.id.btnHome).setOnClickListener { setupHomeButton() }
+        findViewById<TextView>(R.id.btnScreen).setOnClickListener {
+            // ขยายจอจาก PC: spacedesk (extend) หรือ Moonlight (Apollo/Sunshine)
+            val i = listOf("ph.spacedesk.beta", "ph.spacedesk.viewer", "com.limelight")
+                .firstNotNullOfOrNull { packageManager.getLeanbackLaunchIntentForPackage(it) ?: packageManager.getLaunchIntentForPackage(it) }
+            if (i != null) launch(i) else Toast.makeText(this, "ติดตั้ง spacedesk หรือ Moonlight ก่อน", Toast.LENGTH_LONG).show()
+        }
         btnHidden.setOnClickListener {
             showHidden = !showHidden
             btnHidden.text = if (showHidden) "ซ่อนแอปที่ซ่อน" else "แอปที่ซ่อน"
@@ -199,6 +216,49 @@ class MainActivity : Activity() {
         if (!quiet) Toast.makeText(this, "ไม่มีสิทธิ์เปิด", Toast.LENGTH_SHORT).show(); false
     }
 
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        updateStatus()
+    }
+
+    override fun onDestroy() {
+        netCallback?.let { getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(it) }
+        super.onDestroy()
+    }
+
+    private fun watchNetwork() {
+        val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(n: android.net.Network, c: android.net.NetworkCapabilities) { runOnUiThread { updateStatus() } }
+            override fun onLost(n: android.net.Network) { runOnUiThread { updateStatus() } }
+        }
+        try { cm.registerDefaultNetworkCallback(cb); netCallback = cb } catch (_: Exception) {}
+    }
+
+    /** ชื่อทีวี + เครือข่ายที่เชื่อมอยู่ */
+    private fun updateStatus() {
+        tvName.text = Settings.Global.getString(contentResolver, "device_name")?.takeIf { it.isNotBlank() }
+            ?: android.os.Build.MODEL
+        val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork)
+        val (icon, name) = when {
+            caps == null -> R.drawable.ic_wifi_off to "ไม่ได้เชื่อมต่อ"
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> R.drawable.ic_ethernet to "Ethernet"
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> R.drawable.ic_wifi to (wifiName() ?: "Wi-Fi")
+            else -> R.drawable.ic_wifi to "เชื่อมต่อแล้ว"
+        }
+        netIcon.setImageResource(icon)
+        val offline = caps != null && !caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        netName.text = if (offline) "$name · ไม่มีอินเทอร์เน็ต" else name
+        netIcon.alpha = if (caps == null || offline) 0.5f else 1f
+    }
+
+    @Suppress("DEPRECATION")
+    private fun wifiName(): String? {
+        val wm = applicationContext.getSystemService(android.net.wifi.WifiManager::class.java) ?: return null
+        return wm.connectionInfo?.ssid?.trim('"')?.takeIf { it.isNotBlank() && it != "<unknown ssid>" }
+    }
+
     private fun updateHomeBtn() {
         findViewById<TextView>(R.id.btnHome).text =
             if (HomeOverrideService.isEnabled(this)) "ปุ่ม Home: เปิด" else "ปุ่ม Home: ปิด"
@@ -237,5 +297,5 @@ class MainActivity : Activity() {
             .show()
     }
 
-    companion object { private const val COLUMNS = 5 }
+    companion object { private const val COLUMNS = 6 }
 }

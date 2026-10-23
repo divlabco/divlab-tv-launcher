@@ -5,7 +5,7 @@
 
     <co.divlab.tvlauncher.AuraView android:id="@+id/bg" android:layout_width="match_parent" android:layout_height="match_parent" />
     <View android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/scrim" />
-    <View android:layout_width="match_parent" android:layout_height="250dp" android:layout_gravity="bottom"
+    <View android:layout_width="match_parent" android:layout_height="330dp" android:layout_gravity="bottom"
         android:layout_marginStart="24dp" android:layout_marginEnd="24dp" android:layout_marginBottom="16dp"
         android:background="@drawable/glass" />
 
@@ -15,6 +15,7 @@
         <TextView android:id="@+id/btnInput" style="@style/Pill" android:text="แหล่งสัญญาณ" />
         <TextView android:id="@+id/btnWifi" style="@style/Pill" android:text="Wi-Fi" />
         <TextView android:id="@+id/btnSettings" style="@style/Pill" android:text="ตั้งค่า" />
+        <TextView android:id="@+id/btnScreen" style="@style/Pill" android:text="จอ PC" />
         <TextView android:id="@+id/btnHome" style="@style/Pill" android:text="ปุ่ม Home" />
         <TextView android:id="@+id/btnHidden" style="@style/Pill" android:text="แอปที่ซ่อน" />
         <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
@@ -23,18 +24,35 @@
             <TextView android:id="@+id/time" android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:textColor="#FFFFFF" android:textSize="34sp" android:fontFamily="sans-serif-light" />
             <TextView android:id="@+id/date" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:textColor="#CCFFFFFF" android:textSize="15sp" />
+                android:textColor="#CCFFFFFF" android:textSize="14sp" />
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="8dp" android:orientation="horizontal" android:gravity="center_vertical"
+                android:background="@drawable/status_pill"
+                android:paddingStart="12dp" android:paddingEnd="14dp" android:paddingTop="5dp" android:paddingBottom="5dp">
+                <ImageView android:id="@+id/netIcon" android:layout_width="14dp" android:layout_height="14dp"
+                    android:src="@drawable/ic_wifi" android:importantForAccessibility="no" />
+                <TextView android:id="@+id/netName" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp" android:maxWidth="200dp" android:singleLine="true" android:ellipsize="end"
+                    android:textColor="#FFFFFF" android:textSize="12sp" android:fontFamily="sans-serif-medium" />
+                <View android:layout_width="1dp" android:layout_height="12dp" android:layout_marginStart="10dp"
+                    android:layout_marginEnd="10dp" android:background="#4DFFFFFF" />
+                <ImageView android:layout_width="14dp" android:layout_height="14dp" android:alpha="0.85"
+                    android:src="@drawable/ic_tv" android:importantForAccessibility="no" />
+                <TextView android:id="@+id/tvName" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp" android:maxWidth="200dp" android:singleLine="true" android:ellipsize="end"
+                    android:textColor="#D9FFFFFF" android:textSize="12sp" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 
     <TextView android:id="@+id/heroTitle" android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:layout_gravity="bottom|start" android:layout_marginStart="56dp" android:layout_marginBottom="300dp"
-        android:textColor="#FFFFFF" android:textSize="40sp" android:fontFamily="sans-serif-medium"
+        android:layout_gravity="bottom|start" android:layout_marginStart="56dp" android:layout_marginBottom="356dp"
+        android:textColor="#FFFFFF" android:textSize="34sp" android:fontFamily="sans-serif-medium"
         android:shadowColor="#99000000" android:shadowRadius="12" />
 
     <androidx.recyclerview.widget.RecyclerView android:id="@+id/grid"
-        android:layout_width="match_parent" android:layout_height="250dp" android:layout_gravity="bottom" android:layout_marginBottom="16dp"
-        android:paddingStart="36dp" android:paddingEnd="36dp" android:paddingTop="22dp" android:paddingBottom="8dp"
+        android:layout_width="match_parent" android:layout_height="330dp" android:layout_gravity="bottom" android:layout_marginBottom="16dp"
+        android:paddingStart="34dp" android:paddingEnd="34dp" android:paddingTop="14dp" android:paddingBottom="8dp"
         android:clipToPadding="true" android:clipChildren="false" android:scrollbars="none"
         android:fadingEdgeLength="24dp" android:requiresFadingEdge="vertical" />
 </FrameLayout>

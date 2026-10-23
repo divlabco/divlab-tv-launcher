@@ -50,7 +50,7 @@ class AppAdapter(
             h.icon.scaleType = ImageView.ScaleType.CENTER_CROP
             h.icon.setPadding(0, 0, 0, 0)
         } else {
-            val pad = (22 * h.icon.resources.displayMetrics.density).toInt()
+            val pad = (16 * h.icon.resources.displayMetrics.density).toInt()
             h.icon.scaleType = ImageView.ScaleType.FIT_CENTER
             h.icon.setPadding(pad, pad, pad, pad)
         }

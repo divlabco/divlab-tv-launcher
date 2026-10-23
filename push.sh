@@ -20,5 +20,6 @@ if ! adb -s $TV install -r divlab-launcher.apk; then
   echo "signature ไม่ตรง → ถอนตัวเก่าแล้วติดตั้งใหม่"; adb -s $TV uninstall co.divlab.tvlauncher; adb -s $TV install divlab-launcher.apk
 fi
 adb -s $TV shell pm grant co.divlab.tvlauncher android.permission.WRITE_SECURE_SETTINGS || true
+adb -s $TV shell pm grant co.divlab.tvlauncher android.permission.ACCESS_FINE_LOCATION || true
 adb -s $TV shell monkey -p co.divlab.tvlauncher 1 >/dev/null
 adb -s $TV shell dumpsys package co.divlab.tvlauncher | grep versionName
