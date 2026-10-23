@@ -1,18 +1,27 @@
 package co.divlab.tvlauncher
 
+import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.Uri
+import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.view.KeyEvent
+import android.view.View
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.palette.graphics.Palette
@@ -20,25 +29,26 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 
 class MainActivity : Activity() {
+    private lateinit var prefs: Prefs
     private lateinit var repo: AppRepo
     private lateinit var adapter: AppAdapter
+    private lateinit var layoutManager: GridLayoutManager
     private lateinit var grid: RecyclerView
     private lateinit var bg: AuraView
     private lateinit var heroTitle: TextView
     private lateinit var timeView: TextView
     private lateinit var dateView: TextView
-    private lateinit var btnHidden: TextView
+    private lateinit var statusPill: View
+    private lateinit var netIcon: ImageView
+    private lateinit var netName: TextView
+    private lateinit var tvName: TextView
 
     private val handler = Handler(Looper.getMainLooper())
     private val colorCache = HashMap<String, IntArray>()
-    private var moving: String? = null
-    private lateinit var netIcon: android.widget.ImageView
-    private lateinit var netName: TextView
-    private lateinit var tvName: TextView
-    private var netCallback: android.net.ConnectivityManager.NetworkCallback? = null
-    private var showHidden = false
     private var focused: AppItem? = null
+    private var moving: String? = null
     private var firstLoad = true
+    private var netCallback: ConnectivityManager.NetworkCallback? = null
 
     private val tick = object : Runnable {
         override fun run() {
@@ -52,72 +62,117 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        prefs = Prefs(this)
         repo = AppRepo(this)
         bg = findViewById(R.id.bg)
         heroTitle = findViewById(R.id.heroTitle)
         timeView = findViewById(R.id.time)
         dateView = findViewById(R.id.date)
-        btnHidden = findViewById(R.id.btnHidden)
-        grid = findViewById(R.id.grid)
+        statusPill = findViewById(R.id.statusPill)
         netIcon = findViewById(R.id.netIcon)
         netName = findViewById(R.id.netName)
         tvName = findViewById(R.id.tvName)
-        watchNetwork()
-        if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED)
-            requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), 1) // จำเป็นสำหรับอ่านชื่อ Wi-Fi
+        grid = findViewById(R.id.grid)
 
-        adapter = AppAdapter(onFocus = ::showHero, onClick = { launch(it.intent) }, onLong = ::showMenu)
-        grid.layoutManager = GridLayoutManager(this, COLUMNS)
+        adapter = AppAdapter(onFocus = ::showHero, onClick = ::open, onLong = ::showMenu)
+        layoutManager = GridLayoutManager(this, prefs.columns).apply {
+            spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+                override fun getSpanSize(position: Int) = if (adapter.isHeader(position)) spanCount else 1
+            }
+        }
+        grid.layoutManager = layoutManager
         grid.adapter = adapter
         grid.itemAnimator = null
-        grid.setHasFixedSize(true)
 
-        findViewById<TextView>(R.id.btnSettings).setOnClickListener { launch(Intent(Settings.ACTION_SETTINGS)) }
-        findViewById<TextView>(R.id.btnWifi).setOnClickListener { launch(Intent(Settings.ACTION_WIFI_SETTINGS)) }
-        findViewById<TextView>(R.id.btnInput).setOnClickListener { openInputs() }
-        findViewById<TextView>(R.id.btnHome).setOnClickListener { setupHomeButton() }
-        findViewById<TextView>(R.id.btnScreen).setOnClickListener {
-            // ขยายจอจาก PC: spacedesk (extend) หรือ Moonlight (Apollo/Sunshine)
-            val i = listOf("ph.spacedesk.beta", "ph.spacedesk.viewer", "com.limelight")
-                .firstNotNullOfOrNull { packageManager.getLeanbackLaunchIntentForPackage(it) ?: packageManager.getLaunchIntentForPackage(it) }
-            if (i != null) launch(i) else Toast.makeText(this, "ติดตั้ง spacedesk หรือ Moonlight ก่อน", Toast.LENGTH_LONG).show()
-        }
-        btnHidden.setOnClickListener {
-            showHidden = !showHidden
-            btnHidden.text = if (showHidden) "ซ่อนแอปที่ซ่อน" else "แอปที่ซ่อน"
-            reload(null)
-        }
+        findViewById<View>(R.id.btnInput).setOnClickListener { openInputs() }
+        findViewById<View>(R.id.btnWifi).setOnClickListener { launch(Intent(Settings.ACTION_WIFI_SETTINGS)) }
+        findViewById<View>(R.id.btnSettings).setOnClickListener { launch(Intent(Settings.ACTION_SETTINGS)) }
+        findViewById<View>(R.id.btnScreen).setOnClickListener { openScreenShare() }
+        findViewById<View>(R.id.btnCustomize).setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
+
+        watchNetwork()
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1) // สำหรับอ่านชื่อ Wi-Fi
     }
 
     override fun onResume() {
         super.onResume()
+        applyPrefs()
         reload(focused?.pkg)
         handler.post(tick)
-        updateHomeBtn()
     }
 
     override fun onPause() {
         super.onPause()
         handler.removeCallbacks(tick)
+        if (moving != null) endMove()
+    }
+
+    override fun onDestroy() {
+        netCallback?.let { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(it) }
+        super.onDestroy()
     }
 
     @Deprecated("Deprecated in Java")
-    override fun onBackPressed() { /* เป็นหน้า Home — ไม่ต้องปิด */ }
+    override fun onBackPressed() { /* หน้า Home — ไม่ปิด */ }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_MENU) { focused?.let(::showMenu); return true }
         return super.onKeyDown(keyCode, event)
     }
 
-    /** โหมดย้าย: ลูกศรเลื่อนแอปไปทันที, OK/Back = เสร็จ */
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        updateStatus()
+    }
+
+    // ---------- การตั้งค่า ----------
+
+    private fun applyPrefs() {
+        layoutManager.spanCount = prefs.columns
+        adapter.labelMode = prefs.labels
+        adapter.tileHeightPx = (prefs.tileHeightDp() * resources.displayMetrics.density).toInt()
+        statusPill.visibility = if (prefs.showStatus) View.VISIBLE else View.GONE
+        if (!prefs.appColors) bg.setColors(DEFAULT_COLORS)
+    }
+
+    private fun reload(focusPkg: String?) {
+        val apps = repo.load(prefs.showHidden)
+        val entries = ArrayList<Entry>()
+        if (prefs.showRecent) {
+            val byPkg = apps.associateBy { it.pkg }
+            val recent = prefs.recents().mapNotNull { byPkg[it] }.take(prefs.columns)
+            if (recent.isNotEmpty()) {
+                entries += Entry.Header("เปิดล่าสุด")
+                recent.forEach { entries += Entry.App(it, true) }
+                entries += Entry.Header("แอปทั้งหมด")
+            }
+        }
+        apps.forEach { entries += Entry.App(it, false) }
+        adapter.submit(entries)
+
+        var idx = if (focusPkg != null) entries.indexOfFirst { it is Entry.App && it.app.pkg == focusPkg } else -1
+        if (idx < 0 && firstLoad) idx = entries.indexOfFirst { it is Entry.App }
+        firstLoad = false
+        if (idx >= 0) focusAt(idx)
+    }
+
+    private fun focusAt(idx: Int) {
+        grid.scrollToPosition(idx)
+        grid.post { grid.findViewHolderForAdapterPosition(idx)?.itemView?.findViewById<View>(R.id.tile)?.requestFocus() }
+    }
+
+    // ---------- โหมดย้าย ----------
+
     override fun dispatchKeyEvent(e: KeyEvent): Boolean {
         val pkg = moving ?: return super.dispatchKeyEvent(e)
         if (e.action != KeyEvent.ACTION_DOWN) return true
+        val cols = prefs.columns
         when (e.keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> step(pkg, -1)
             KeyEvent.KEYCODE_DPAD_RIGHT -> step(pkg, +1)
-            KeyEvent.KEYCODE_DPAD_UP -> step(pkg, -COLUMNS)
-            KeyEvent.KEYCODE_DPAD_DOWN -> step(pkg, +COLUMNS)
+            KeyEvent.KEYCODE_DPAD_UP -> step(pkg, -cols)
+            KeyEvent.KEYCODE_DPAD_DOWN -> step(pkg, +cols)
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> if (e.repeatCount == 0) endMove()
         }
@@ -127,44 +182,34 @@ class MainActivity : Activity() {
     private fun startMove(app: AppItem) {
         moving = app.pkg
         adapter.movingPkg = app.pkg
+        adapter.indexOf(app.pkg).takeIf { it >= 0 }?.let(::focusAt)
     }
 
     private fun step(pkg: String, delta: Int) {
         val i = adapter.indexOf(pkg)
-        if (i < 0) return
-        val j = (i + delta).coerceIn(0, adapter.itemCount - 1)
+        val range = adapter.allRange()
+        if (i < 0 || range.isEmpty()) return
+        val j = (i + delta).coerceIn(range.first, range.last)
         if (i == j) return
         adapter.move(i, j)
-        grid.scrollToPosition(j)
-        grid.post { grid.findViewHolderForAdapterPosition(j)?.itemView?.findViewById<android.view.View>(R.id.tile)?.requestFocus() }
+        focusAt(j)
     }
 
     private fun endMove() {
         moving = null
         adapter.movingPkg = null
-        repo.saveOrder(adapter.items.map { it.pkg })
+        repo.saveOrder(adapter.allApps().map { it.pkg })
     }
 
-    private fun reload(focusPkg: String?) {
-        adapter.submit(repo.load(showHidden))
-        val idx = adapter.items.indexOfFirst { it.pkg == focusPkg }
-            .let { if (it < 0 && firstLoad) 0 else it }
-        firstLoad = false
-        if (idx >= 0) focusAt(idx)
-    }
-
-    private fun focusAt(idx: Int) {
-        grid.scrollToPosition(idx)
-        grid.post { grid.findViewHolderForAdapterPosition(idx)?.itemView?.findViewById<android.view.View>(R.id.tile)?.requestFocus() }
-    }
+    // ---------- พื้นหลัง ----------
 
     private fun showHero(app: AppItem) {
         focused = app
         heroTitle.text = app.label
-        bg.setColors(colorCache.getOrPut(app.pkg) { colorsOf(app.art) })
+        if (prefs.appColors) bg.setColors(colorCache.getOrPut(app.pkg) { colorsOf(app.art) })
     }
 
-    /** ดึงสีเด่นของแอป 3 สี (หลัก, เข้ม, รอง) จากภาพขนาดเล็ก */
+    /** ดึงสีเด่น 3 สี (หลัก, เข้ม, รอง) จากภาพขนาดเล็ก */
     private fun colorsOf(d: Drawable): IntArray {
         val bmp = Bitmap.createBitmap(96, 54, Bitmap.Config.ARGB_8888)
         val copy = d.constantState?.newDrawable(resources)?.mutate() ?: d
@@ -172,13 +217,14 @@ class MainActivity : Activity() {
         copy.draw(Canvas(bmp))
         val p = Palette.from(bmp).maximumColorCount(12).generate()
         bmp.recycle()
-        val fallback = 0xFF4F46E5.toInt()
-        val dom = p.getDominantColor(fallback)
+        val dom = p.getDominantColor(DEFAULT_COLORS[0])
         val main = p.getVibrantColor(p.getLightVibrantColor(dom))
         val dark = p.getDarkVibrantColor(p.getDarkMutedColor(dom))
         val accent = p.getLightVibrantColor(p.getMutedColor(main))
         return intArrayOf(main, dark, accent)
     }
+
+    // ---------- เมนูแอป ----------
 
     private fun showMenu(app: AppItem) {
         val items = arrayOf("ย้ายตำแหน่ง", if (app.hidden) "เลิกซ่อน" else "ซ่อนแอปนี้", "ข้อมูลแอป")
@@ -187,14 +233,17 @@ class MainActivity : Activity() {
             .setItems(items) { _, which ->
                 when (which) {
                     0 -> startMove(app)
-                    1 -> { repo.toggleHidden(app.pkg); reload(if (showHidden) app.pkg else null) }
+                    1 -> { repo.toggleHidden(app.pkg); reload(if (prefs.showHidden) app.pkg else null) }
                     2 -> launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${app.pkg}")))
                 }
             }
             .show()
     }
 
-    /** เปิดหน้าเลือกแหล่งสัญญาณ (HDMI/ทีวี) — ลองหลายวิธีตามยี่ห้อ */
+    private fun open(app: AppItem) {
+        if (launch(app.intent)) prefs.pushRecent(app.pkg)
+    }
+
     private fun openInputs() {
         val candidates = listOfNotNull(
             Intent("com.tcl.tv.action.SOURCE"),
@@ -202,10 +251,14 @@ class MainActivity : Activity() {
             packageManager.getLaunchIntentForPackage("com.tcl.tv"),
             Intent(Settings.ACTION_SETTINGS),
         )
-        for (i in candidates) {
-            if (i.resolveActivity(packageManager) != null && launch(i, quiet = true)) return
-        }
-        Toast.makeText(this, "ไม่พบหน้าเลือกแหล่งสัญญาณ", Toast.LENGTH_SHORT).show()
+        if (candidates.none { it.resolveActivity(packageManager) != null && launch(it, quiet = true) })
+            Toast.makeText(this, "ไม่พบหน้าเลือกแหล่งสัญญาณ", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun openScreenShare() {
+        val i = listOf("ph.spacedesk.beta", "ph.spacedesk.viewer", "com.limelight")
+            .firstNotNullOfOrNull { packageManager.getLeanbackLaunchIntentForPackage(it) ?: packageManager.getLaunchIntentForPackage(it) }
+        if (i != null) launch(i) else Toast.makeText(this, "ติดตั้ง spacedesk หรือ Moonlight ก่อน", Toast.LENGTH_LONG).show()
     }
 
     private fun launch(i: Intent, quiet: Boolean = false): Boolean = try {
@@ -216,86 +269,41 @@ class MainActivity : Activity() {
         if (!quiet) Toast.makeText(this, "ไม่มีสิทธิ์เปิด", Toast.LENGTH_SHORT).show(); false
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        updateStatus()
-    }
-
-    override fun onDestroy() {
-        netCallback?.let { getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(it) }
-        super.onDestroy()
-    }
+    // ---------- สถานะเครือข่าย ----------
 
     private fun watchNetwork() {
-        val cm = getSystemService(android.net.ConnectivityManager::class.java)
-        val cb = object : android.net.ConnectivityManager.NetworkCallback() {
-            override fun onCapabilitiesChanged(n: android.net.Network, c: android.net.NetworkCapabilities) { runOnUiThread { updateStatus() } }
-            override fun onLost(n: android.net.Network) { runOnUiThread { updateStatus() } }
+        val cm = getSystemService(ConnectivityManager::class.java)
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(n: Network, c: NetworkCapabilities) { runOnUiThread { updateStatus() } }
+            override fun onLost(n: Network) { runOnUiThread { updateStatus() } }
         }
         try { cm.registerDefaultNetworkCallback(cb); netCallback = cb } catch (_: Exception) {}
     }
 
-    /** ชื่อทีวี + เครือข่ายที่เชื่อมอยู่ */
     private fun updateStatus() {
-        tvName.text = Settings.Global.getString(contentResolver, "device_name")?.takeIf { it.isNotBlank() }
-            ?: android.os.Build.MODEL
-        val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        if (!prefs.showStatus) return
+        tvName.text = Settings.Global.getString(contentResolver, "device_name")?.takeIf { it.isNotBlank() } ?: Build.MODEL
+        val cm = getSystemService(ConnectivityManager::class.java)
         val caps = cm.getNetworkCapabilities(cm.activeNetwork)
         val (icon, name) = when {
             caps == null -> R.drawable.ic_wifi_off to "ไม่ได้เชื่อมต่อ"
-            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> R.drawable.ic_ethernet to "Ethernet"
-            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> R.drawable.ic_wifi to (wifiName() ?: "Wi-Fi")
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> R.drawable.ic_ethernet to "Ethernet"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> R.drawable.ic_wifi to (wifiName() ?: "Wi-Fi")
             else -> R.drawable.ic_wifi to "เชื่อมต่อแล้ว"
         }
         netIcon.setImageResource(icon)
-        val offline = caps != null && !caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        val offline = caps != null && !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
         netName.text = if (offline) "$name · ไม่มีอินเทอร์เน็ต" else name
         netIcon.alpha = if (caps == null || offline) 0.5f else 1f
     }
 
     @Suppress("DEPRECATION")
     private fun wifiName(): String? {
-        val wm = applicationContext.getSystemService(android.net.wifi.WifiManager::class.java) ?: return null
+        val wm = applicationContext.getSystemService(WifiManager::class.java) ?: return null
         return wm.connectionInfo?.ssid?.trim('"')?.takeIf { it.isNotBlank() && it != "<unknown ssid>" }
     }
 
-    private fun updateHomeBtn() {
-        findViewById<TextView>(R.id.btnHome).text =
-            if (HomeOverrideService.isEnabled(this)) "ปุ่ม Home: เปิด" else "ปุ่ม Home: ปิด"
+    companion object {
+        val DEFAULT_COLORS = intArrayOf(0xFF4F46E5.toInt(), 0xFF1F2937.toInt(), 0xFF0EA5E9.toInt())
     }
-
-    private val serviceId get() = "$packageName/${HomeOverrideService::class.java.name}"
-
-    /**
-     * เปิด/ปิดการแทนที่ปุ่ม Home
-     * - ถ้าได้สิทธิ์ WRITE_SECURE_SETTINGS (adb pm grant ครั้งเดียว) → สลับได้ทันทีในแอป
-     * - ไม่งั้น → พาไปหน้าการช่วยเหลือพิเศษ / แสดงคำสั่ง adb
-     */
-    private fun setupHomeButton() {
-        val on = HomeOverrideService.isEnabled(this)
-        if (checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            val cr = contentResolver
-            val list = (Settings.Secure.getString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: "")
-                .split(":").filter { it.isNotBlank() && !it.startsWith("$packageName/") }.toMutableList()
-            if (!on) list += serviceId
-            Settings.Secure.putString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, list.joinToString(":"))
-            Settings.Secure.putInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, if (list.isEmpty()) 0 else 1)
-            handler.postDelayed({ updateHomeBtn() }, 400)
-            Toast.makeText(this, if (on) "ปิดการแทนที่ปุ่ม Home แล้ว" else "เปิดการแทนที่ปุ่ม Home แล้ว", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val opened = listOf(
-            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
-            Intent().setClassName("com.android.tv.settings", "com.android.tv.settings.accessibility.AccessibilityActivity"),
-            Intent().setClassName("com.tcl.settings", "com.tcl.settings.accessibility.AccessibilityActivity"),
-        ).any { it.resolveActivity(packageManager) != null && launch(it, quiet = true) }
-        if (opened) return
-        AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
-            .setTitle("แทนที่ปุ่ม Home")
-            .setMessage("ทีวีรุ่นนี้ไม่มีหน้าการช่วยเหลือพิเศษให้เปิดจากแอป\n\nรันคำสั่งนี้บนคอมพิวเตอร์ครั้งเดียว แล้วกดปุ่มนี้อีกครั้ง:\n\nadb shell pm grant $packageName android.permission.WRITE_SECURE_SETTINGS")
-            .setPositiveButton("ตกลง", null)
-            .show()
-    }
-
-    companion object { private const val COLUMNS = 6 }
 }

@@ -45,6 +45,20 @@ class HomeOverrideService : AccessibilityService() {
             "com.tcl.waterfall.overseas",
         )
 
+        /** สลับเปิด/ปิด — คืนค่าสถานะใหม่ หรือ null ถ้ายังไม่ได้สิทธิ์ WRITE_SECURE_SETTINGS */
+        fun toggle(ctx: Context): Boolean? {
+            if (ctx.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED) return null
+            val cr = ctx.contentResolver
+            val on = isEnabled(ctx)
+            val list = (Settings.Secure.getString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: "")
+                .split(":").filter { it.isNotBlank() && !it.startsWith("${ctx.packageName}/") }.toMutableList()
+            if (!on) list += "${ctx.packageName}/${HomeOverrideService::class.java.name}"
+            Settings.Secure.putString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, list.joinToString(":"))
+            Settings.Secure.putInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, if (list.isEmpty()) 0 else 1)
+            return !on
+        }
+
         fun isEnabled(ctx: Context): Boolean =
             Settings.Secure.getString(ctx.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
                 ?.contains("${ctx.packageName}/") == true

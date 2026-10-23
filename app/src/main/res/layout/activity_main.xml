@@ -14,10 +14,9 @@
         android:paddingStart="48dp" android:paddingEnd="48dp" android:paddingTop="28dp">
         <TextView android:id="@+id/btnInput" style="@style/Pill" android:text="แหล่งสัญญาณ" />
         <TextView android:id="@+id/btnWifi" style="@style/Pill" android:text="Wi-Fi" />
-        <TextView android:id="@+id/btnSettings" style="@style/Pill" android:text="ตั้งค่า" />
+        <TextView android:id="@+id/btnSettings" style="@style/Pill" android:text="ตั้งค่าทีวี" />
         <TextView android:id="@+id/btnScreen" style="@style/Pill" android:text="จอ PC" />
-        <TextView android:id="@+id/btnHome" style="@style/Pill" android:text="ปุ่ม Home" />
-        <TextView android:id="@+id/btnHidden" style="@style/Pill" android:text="แอปที่ซ่อน" />
+        <TextView android:id="@+id/btnCustomize" style="@style/Pill" android:text="ปรับแต่ง" />
         <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
         <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:orientation="vertical" android:gravity="end">
@@ -26,6 +25,7 @@
             <TextView android:id="@+id/date" android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:textColor="#CCFFFFFF" android:textSize="14sp" />
             <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:id="@+id/statusPill"
                 android:layout_marginTop="8dp" android:orientation="horizontal" android:gravity="center_vertical"
                 android:background="@drawable/status_pill"
                 android:paddingStart="12dp" android:paddingEnd="14dp" android:paddingTop="5dp" android:paddingBottom="5dp">

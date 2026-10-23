@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:background="#000000">
+
+    <co.divlab.tvlauncher.AuraView android:id="@+id/bg" android:layout_width="match_parent" android:layout_height="match_parent" />
+    <View android:layout_width="match_parent" android:layout_height="match_parent" android:background="#66000000" />
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+        android:orientation="horizontal" android:padding="48dp">
+
+        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent"
+            android:orientation="vertical" android:gravity="center_vertical" android:paddingEnd="32dp">
+            <ImageView android:layout_width="160dp" android:layout_height="90dp" android:src="@drawable/banner"
+                android:importantForAccessibility="no" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="20dp" android:text="ปรับแต่ง"
+                android:textColor="#FFFFFF" android:textSize="40sp" android:fontFamily="sans-serif-medium" />
+            <TextView android:id="@+id/version" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:textColor="#99FFFFFF" android:textSize="14sp" />
+            <TextView android:id="@+id/hint" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="24dp" android:maxWidth="320dp" android:lineSpacingExtra="4dp"
+                android:textColor="#CCFFFFFF" android:textSize="15sp" />
+        </LinearLayout>
+
+        <ScrollView android:layout_width="520dp" android:layout_height="match_parent"
+            android:background="@drawable/card_glass" android:padding="12dp"
+            android:scrollbars="none" android:clipToPadding="false">
+            <LinearLayout android:id="@+id/rows" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </ScrollView>
+    </LinearLayout>
+</FrameLayout>
