@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:clipChildren="false" android:clipToPadding="false">
+    <FrameLayout android:id="@+id/tile" android:layout_width="match_parent" android:layout_height="96dp"
+        android:layout_margin="12dp" android:background="@drawable/tile_bg"
+        android:focusable="true" android:clickable="true">
+        <ImageView android:id="@+id/icon" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:importantForAccessibility="no" />
+    </FrameLayout>
+    <TextView android:id="@+id/label" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center" android:textColor="#FFFFFF" android:textSize="13sp"
+        android:singleLine="true" android:ellipsize="end" android:visibility="invisible" />
+</LinearLayout>

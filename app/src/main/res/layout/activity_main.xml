@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="#000000" android:clipChildren="false">
+
+    <ImageView android:id="@+id/bg" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:scaleType="centerCrop" android:importantForAccessibility="no" />
+    <View android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/scrim" />
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical"
+        android:paddingStart="48dp" android:paddingEnd="48dp" android:paddingTop="28dp">
+        <TextView android:id="@+id/btnInput" style="@style/Pill" android:text="แหล่งสัญญาณ" />
+        <TextView android:id="@+id/btnWifi" style="@style/Pill" android:text="Wi-Fi" />
+        <TextView android:id="@+id/btnSettings" style="@style/Pill" android:text="ตั้งค่า" />
+        <TextView android:id="@+id/btnHidden" style="@style/Pill" android:text="แอปที่ซ่อน" />
+        <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:orientation="vertical" android:gravity="end">
+            <TextView android:id="@+id/time" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="#FFFFFF" android:textSize="34sp" android:fontFamily="sans-serif-light" />
+            <TextView android:id="@+id/date" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="#CCFFFFFF" android:textSize="15sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView android:id="@+id/heroTitle" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start" android:layout_marginStart="56dp" android:layout_marginBottom="270dp"
+        android:textColor="#FFFFFF" android:textSize="40sp" android:fontFamily="sans-serif-medium"
+        android:shadowColor="#99000000" android:shadowRadius="12" />
+
+    <androidx.recyclerview.widget.RecyclerView android:id="@+id/grid"
+        android:layout_width="match_parent" android:layout_height="260dp" android:layout_gravity="bottom"
+        android:paddingStart="36dp" android:paddingEnd="36dp" android:paddingTop="16dp" android:paddingBottom="16dp"
+        android:clipToPadding="false" android:clipChildren="false" android:scrollbars="none" />
+</FrameLayout>
