@@ -21,7 +21,11 @@ class SettingsActivity : Activity() {
     private var updateState = "กำลังตรวจสอบ…"
     private var downloadId = -1L
 
-    private class Opt(val title: String, val hint: String, val value: () -> String, val onClick: () -> Unit)
+    /** choice = เปลี่ยนค่าด้วย ◀ ▶ (OK = ถัดไป), action = กด OK เพื่อทำ */
+    private class Opt(
+        val title: String, val hint: String, val value: () -> String,
+        val choice: Boolean = true, val change: (Int) -> Unit,
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,29 +37,34 @@ class SettingsActivity : Activity() {
             "divlab Launcher " + packageManager.getPackageInfo(packageName, 0).versionName
 
         val onOff = { b: Boolean -> if (b) "เปิด" else "ปิด" }
+        fun cyc(v: Int, n: Int, d: Int) = ((v + d) % n + n) % n
         val opts = listOf(
             Opt("อัปเดต", "ตรวจสอบเวอร์ชันใหม่จาก GitHub แล้วติดตั้งทับได้ทันที (ไม่เสียการตั้งค่า)",
-                { updateState }) { onUpdateClick() },
-            Opt("ชื่อแอปใต้ไอคอน", "เลือกว่าจะแสดงชื่อแอปใต้ไอคอนเมื่อไหร่",
-                { arrayOf("ไม่แสดง", "เฉพาะที่เลือก", "แสดงตลอด")[prefs.labels] }) { prefs.labels = (prefs.labels + 1) % 3 },
+                { updateState }, choice = false) { onUpdateClick() },
+            Opt("รูปทรงไอคอน", "เลือกความโค้งของมุมไอคอน",
+                { arrayOf("เหลี่ยม", "มน", "มนมาก", "แคปซูล")[prefs.iconShape] }) { prefs.iconShape = cyc(prefs.iconShape, 4, it) },
             Opt("ขนาดไอคอน", "ไอคอนเล็กลง = เห็นแอปได้มากขึ้นในหน้าเดียว",
-                { arrayOf("เล็ก", "กลาง", "ใหญ่")[prefs.iconSize] }) { prefs.iconSize = (prefs.iconSize + 1) % 3 },
+                { arrayOf("เล็ก", "กลาง", "ใหญ่")[prefs.iconSize] }) { prefs.iconSize = cyc(prefs.iconSize, 3, it) },
             Opt("จำนวนคอลัมน์", "จำนวนแอปต่อแถว (5–8)",
-                { "${prefs.columns}" }) { prefs.columns = if (prefs.columns >= 8) 5 else prefs.columns + 1 },
+                { "${prefs.columns}" }) { prefs.columns = 5 + cyc(prefs.columns - 5, 4, it) },
+            Opt("ชื่อแอปใต้ไอคอน", "เลือกว่าจะแสดงชื่อแอปใต้ไอคอนเมื่อไหร่",
+                { arrayOf("ไม่แสดง", "เฉพาะที่เลือก", "แสดงตลอด")[prefs.labels] }) { prefs.labels = cyc(prefs.labels, 3, it) },
             Opt("แถวเปิดล่าสุด", "แสดงแอปที่เปิดล่าสุดไว้บนสุด กดเพื่อกลับไปดูต่อได้ทันที",
                 { onOff(prefs.showRecent) }) { prefs.showRecent = !prefs.showRecent },
             Opt("สีพื้นหลังตามแอป", "เปลี่ยนสี gradient พื้นหลังตามแอปที่เลือก",
                 { onOff(prefs.appColors) }) { prefs.appColors = !prefs.appColors },
             Opt("ชื่อทีวีและเครือข่าย", "แสดงชื่อทีวีและ Wi-Fi/LAN ที่เชื่อมอยู่ใต้นาฬิกา",
                 { onOff(prefs.showStatus) }) { prefs.showStatus = !prefs.showStatus },
+            Opt("ปุ่มจอ PC", "แสดงปุ่มเปิด spacedesk / Moonlight ที่แถบด้านบน",
+                { onOff(prefs.showScreenBtn) }) { prefs.showScreenBtn = !prefs.showScreenBtn },
             Opt("แสดงแอปที่ซ่อน", "แสดงแอปที่ซ่อนไว้แบบจาง ๆ เพื่อเลิกซ่อน",
                 { onOff(prefs.showHidden) }) { prefs.showHidden = !prefs.showHidden },
             Opt("แทนที่ปุ่ม Home", "ให้ปุ่ม Home บนรีโมตเปิด launcher นี้เสมอ",
                 { onOff(HomeOverrideService.isEnabled(this)) }) { toggleHome() },
-            Opt("ล้างรายการเปิดล่าสุด", "ลบประวัติแอปที่เปิดล่าสุดทั้งหมด", { "" }) {
+            Opt("ล้างรายการเปิดล่าสุด", "ลบประวัติแอปที่เปิดล่าสุดทั้งหมด", { "" }, choice = false) {
                 prefs.clearRecents(); toast("ล้างแล้ว")
             },
-            Opt("รีเซ็ตลำดับแอป", "เรียงแอปตามตัวอักษรเหมือนตอนติดตั้งใหม่", { "" }) {
+            Opt("รีเซ็ตลำดับแอป", "เรียงแอปตามตัวอักษรเหมือนตอนติดตั้งใหม่", { "" }, choice = false) {
                 prefs.resetOrder(); toast("รีเซ็ตแล้ว")
             },
         )
@@ -65,7 +74,16 @@ class SettingsActivity : Activity() {
         opts.forEach { o ->
             val v = inf.inflate(R.layout.item_setting, container, false)
             v.findViewById<TextView>(R.id.title).text = o.title
-            v.setOnClickListener { o.onClick(); refresh() }
+            v.setOnClickListener { o.change(+1); refresh() }
+            v.setOnKeyListener { _, code, e ->
+                if (!o.choice || e.action != android.view.KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                val d = when (code) {
+                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> -1
+                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> +1
+                    else -> return@setOnKeyListener false
+                }
+                o.change(d); refresh(); true
+            }
             v.setOnFocusChangeListener { _, f ->
                 v.animate().scaleX(if (f) 1.03f else 1f).scaleY(if (f) 1.03f else 1f).setDuration(120).start()
                 if (f) hint.text = o.hint
@@ -128,7 +146,10 @@ class SettingsActivity : Activity() {
 
     override fun onResume() { super.onResume(); refresh() }
 
-    private fun refresh() = rows.forEach { (o, v) -> v.findViewById<TextView>(R.id.value).text = o.value() }
+    private fun refresh() = rows.forEach { (o, v) ->
+        val value = o.value()
+        v.findViewById<TextView>(R.id.value).text = if (o.choice && value.isNotEmpty()) "‹  $value  ›" else value
+    }
 
     private fun toggleHome() {
         val r = HomeOverrideService.toggle(this)
