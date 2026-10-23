@@ -2,10 +2,10 @@
 
 Launcher สำหรับ Android TV / Google TV แบบเบา หน้าตาแนว Apple TV — by [divlab.co](https://divlab.co)
 
-- พื้นหลังเบลอเปลี่ยนตามแอปที่เลือก, ไทล์ 16:9 ขยายเมื่อโฟกัส
+- พื้นหลัง gradient glass ดึงสีจากแอปที่เลือก, ไทล์ 16:9 ขยายเมื่อโฟกัส
 - นาฬิกา + วันที่ภาษาไทย (พ.ศ.)
 - ปุ่มลัด: แหล่งสัญญาณ / Wi-Fi / ตั้งค่า
-- จัดเรียง / ซ่อนแอป: กดค้างปุ่ม OK (หรือปุ่ม Menu) บนแอป
+- จัดเรียง: กดค้าง OK → ย้ายตำแหน่ง → ใช้ลูกศรเลื่อน → OK เสร็จ · ซ่อนแอปได้จากเมนูเดียวกัน
 - ไม่มีโฆษณา ไม่ขอ permission ใด ๆ ไม่มี background service (APK ~ 1 MB)
 - Kotlin + Android Views ล้วน (ไม่ใช้ Compose/Leanback เพื่อให้เบาบนทีวี RAM น้อย)
 
@@ -31,3 +31,13 @@ adb shell pm enable com.google.android.tungsten.setupwraith
 
 ## License
 MIT
+
+## แทนที่ปุ่ม Home ของรีโมต
+กดปุ่ม **ปุ่ม Home** บนหน้า launcher → ไปที่ ตั้งค่า → การช่วยเหลือพิเศษ → divlab Launcher (ปุ่ม Home) → เปิด
+
+ถ้าเมนูการช่วยเหลือพิเศษของทีวีไม่แสดง service นี้ ให้เปิดผ่าน adb:
+```bash
+adb shell settings put secure enabled_accessibility_services co.divlab.tvlauncher/co.divlab.tvlauncher.HomeOverrideService
+adb shell settings put secure accessibility_enabled 1
+```
+ปิด: `adb shell settings delete secure enabled_accessibility_services`

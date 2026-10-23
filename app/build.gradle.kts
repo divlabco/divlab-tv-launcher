@@ -9,8 +9,8 @@ android {
         applicationId = "co.divlab.tvlauncher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
     buildTypes {
         release {
@@ -23,4 +23,5 @@ android {
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
 }
-dependencies { implementation("androidx.recyclerview:recyclerview:1.3.2") }
+dependencies { implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.palette:palette:1.0.0") }

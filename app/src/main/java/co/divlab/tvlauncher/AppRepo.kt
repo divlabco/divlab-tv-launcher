@@ -46,16 +46,10 @@ class AppRepo(private val ctx: Context) {
         return if (includeHidden) sorted else sorted.filterNot { it.hidden }
     }
 
-    /** เลื่อนแอปไปซ้าย (-1) หรือขวา (+1) ในรายการที่มองเห็นอยู่ */
-    fun move(pkg: String, delta: Int, includeHidden: Boolean) {
-        val visible = load(includeHidden).map { it.pkg }
-        val i = visible.indexOf(pkg)
-        val j = i + delta
-        if (i < 0 || j !in visible.indices) return
-        val full = load(true).map { it.pkg }.toMutableList()
-        val a = full.indexOf(visible[i]); val b = full.indexOf(visible[j])
-        full[a] = visible[j]; full[b] = visible[i]
-        prefs.edit().putString(KEY_ORDER, full.joinToString(",")).apply()
+    /** บันทึกลำดับใหม่ของแอปที่มองเห็น (แอปอื่นต่อท้ายตามลำดับเดิม) */
+    fun saveOrder(visible: List<String>) {
+        val rest = order().filterNot { it in visible }
+        prefs.edit().putString(KEY_ORDER, (visible + rest).joinToString(",")).apply()
     }
 
     fun toggleHidden(pkg: String) {
