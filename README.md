@@ -10,10 +10,26 @@ Launcher สำหรับ Android TV / Google TV — เบา สวย แ�
 - นาฬิกา + วันที่ภาษาไทย (พ.ศ.), ชื่อทีวี, Wi-Fi/LAN ที่เชื่อมอยู่
 - ปุ่มลัด: แหล่งสัญญาณ · Wi-Fi · ตั้งค่าทีวี · จอ PC
 - จัดเรียงแอป (กดค้าง OK → ย้ายตำแหน่ง → ลูกศร → OK) และซ่อนแอป
-- หน้า **ปรับแต่ง**: ชื่อใต้ไอคอน, ขนาดไอคอน, จำนวนคอลัมน์, สีพื้นหลัง ฯลฯ
+- หน้า **ปรับแต่ง** (ใช้ ◀ ▶ เปลี่ยนค่า): รูปทรงไอคอน 4 แบบ, ขนาดไอคอน, จำนวนคอลัมน์, ชื่อใต้ไอคอน, สีพื้นหลัง, เปิด/ปิดปุ่มจอ PC ฯลฯ
 - **แทนที่ปุ่ม Home** ของรีโมต
 - **อัปเดตในแอป** จาก GitHub Releases
+- **พักหน้าจอ** นาฬิกาเต็มจอ + สีเคลื่อนไหว (หรี่ลงตอนกลางคืน, ขยับกัน burn-in)
+- **ตั้งเวลาปิดทีวี** 15 นาที – 2 ชั่วโมง
+- **ธีมสี** 6 ชุด (Aurora, Midnight, Sunset, Ocean, Forest, Rose) หรือสีตามแอป
+- **สภาพอากาศ** ข้างวันที่ (Open-Meteo, ไม่ต้องใช้ API key)
+- ภาษา **ไทย / English**
+- หน้า **แนะนำการใช้งานครั้งแรก** พาไปเปิดสิทธิ์ต่าง ๆ
 - ไม่มี background service ที่กินแรง, APK เล็ก
+
+## อุปกรณ์ที่ทดสอบแล้ว
+
+| อุปกรณ์ | ระบบ | ผล |
+|---|---|---|
+| TCL 55C635 | Android TV 11 (Google TV) | ✅ ใช้งานได้ทุกฟีเจอร์ |
+
+ทดสอบบนเครื่องอื่นแล้ว? เปิด [Issue](https://github.com/divlabco/divlab-tv-launcher/issues) บอกรุ่นทีวีและผลได้เลย
+
+> **หมายเหตุ TCL:** เมนูการช่วยเหลือพิเศษถูกซ่อน — ใช้คำสั่ง adb ในวิธีที่ 2 ข้อ 4 ครั้งเดียว แล้วเปิด/ปิด "แทนที่ปุ่ม Home" ในแอปได้เลย
 
 ---
 
@@ -77,7 +93,7 @@ adb -s $TV shell pm disable-user --user 0 com.google.android.tungsten.setupwrait
 # กลับไปใช้ของเดิม: เปลี่ยน disable-user --user 0 เป็น enable
 ```
 
-**อัปเดต:** ปรับแต่ง → อัปเดต (ในแอป) หรือ `adb -s $TV install -r divlab-launcher.apk` ด้วยไฟล์ใหม่
+**อัปเดต:** ปรับแต่ง → อัปเดต (ในแอป ต้องเป็น v0.8.1 ขึ้นไป) หรือ `adb -s $TV install -r divlab-launcher.apk` ด้วยไฟล์ใหม่
 
 **ถอนการติดตั้ง:**
 ```bash
@@ -91,8 +107,8 @@ adb -s $TV uninstall co.divlab.tvlauncher
 ## สำหรับนักพัฒนา
 - Kotlin + Android Views (minSdk 26), ไม่ใช้ Compose/Leanback เพื่อให้เบาบนทีวี RAM น้อย
 - Push ไป `main` → GitHub Actions build APK, push tag `v*` → สร้าง Release
+- `bash push.sh v0.x.y` = push + รอ build + ติดตั้งลงทีวี, เพิ่ม `--no-install` เพื่อปล่อย Release อย่างเดียว
 - APK เซ็นด้วย secret `KEYSTORE_BASE64` + `KEYSTORE_PASSWORD` (alias `divlab`) เพื่อให้อัปเดตทับกันได้
-- ทดสอบบน TCL 55C635 (Android TV 11)
 
 ## License
 MIT © divlab.co

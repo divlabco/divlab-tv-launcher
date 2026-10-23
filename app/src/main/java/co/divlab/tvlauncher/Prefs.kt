@@ -4,6 +4,11 @@ import android.content.Context
 
 /** การตั้งค่าที่ผู้ใช้ปรับได้ */
 class Prefs(ctx: Context) {
+    companion object {
+        val SAVER_MINUTES = intArrayOf(0, 2, 5, 10, 15, 30)
+        val SLEEP_MINUTES = intArrayOf(0, 15, 30, 60, 90, 120)
+    }
+
     private val sp = ctx.getSharedPreferences("launcher", Context.MODE_PRIVATE)
 
     /** 0 = ไม่แสดง, 1 = เฉพาะที่เลือก, 2 = แสดงตลอด */
@@ -46,6 +51,35 @@ class Prefs(ctx: Context) {
         set(v) = sp.edit().putInt("iconShape", v).apply()
 
     fun cornerDp() = floatArrayOf(4f, 14f, 24f, 999f)[iconShape.coerceIn(0, 3)]
+
+    /** 0 = ตามระบบ, 1 = ไทย, 2 = English */
+    var language: Int
+        get() = sp.getInt("language", 0)
+        set(v) = sp.edit().putInt("language", v).apply()
+
+    /** 0 = ตามแอป, 1.. = ธีมคงที่ (ดู Themes) */
+    var theme: Int
+        get() = sp.getInt("theme", if (sp.getBoolean("appColors", true)) 0 else 1)
+        set(v) = sp.edit().putInt("theme", v).apply()
+
+    /** -1 = ปิด, อื่น ๆ = index ใน Weather.cities */
+    var weatherCity: Int
+        get() = sp.getInt("weatherCity", 0)
+        set(v) = sp.edit().putInt("weatherCity", v).apply()
+
+    /** index ใน SAVER_MINUTES (0 = ปิด) */
+    var saver: Int
+        get() = sp.getInt("saver", 2)
+        set(v) = sp.edit().putInt("saver", v).apply()
+
+    /** เวลา (epoch ms) ที่จะปิดทีวี, 0 = ไม่ได้ตั้ง */
+    var sleepAt: Long
+        get() = sp.getLong("sleepAt", 0)
+        set(v) = sp.edit().putLong("sleepAt", v).apply()
+
+    var onboarded: Boolean
+        get() = sp.getBoolean("onboarded", false)
+        set(v) = sp.edit().putBoolean("onboarded", v).apply()
 
     fun tileHeightDp() = intArrayOf(60, 72, 88)[iconSize.coerceIn(0, 2)]
 

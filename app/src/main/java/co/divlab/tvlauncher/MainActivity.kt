@@ -18,6 +18,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.KeyEvent
 import android.view.View
@@ -27,6 +28,7 @@ import android.widget.Toast
 import androidx.palette.graphics.Palette
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlin.random.Random
 
 class MainActivity : Activity() {
     private lateinit var prefs: Prefs
@@ -42,6 +44,8 @@ class MainActivity : Activity() {
     private lateinit var netIcon: ImageView
     private lateinit var netName: TextView
     private lateinit var tvName: TextView
+    private lateinit var saver: View
+    private lateinit var saverBg: AuraView
 
     private val handler = Handler(Looper.getMainLooper())
     private val colorCache = HashMap<String, IntArray>()
@@ -49,20 +53,27 @@ class MainActivity : Activity() {
     private var moving: String? = null
     private var firstLoad = true
     private var netCallback: ConnectivityManager.NetworkCallback? = null
+    private var lastInput = SystemClock.uptimeMillis()
+    private var weather: Weather.Now? = null
+    private var weatherAt = 0L
+    private var saverStep = 0
 
     private val tick = object : Runnable {
         override fun run() {
-            timeView.text = ThaiDate.time()
-            dateView.text = ThaiDate.date()
+            updateClock()
             updateStatus()
+            updateSleepPill()
+            refreshWeather()
+            checkIdle()
             handler.postDelayed(this, 15_000)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
         prefs = Prefs(this)
+        L.apply(prefs.language)
+        setContentView(R.layout.activity_main)
         repo = AppRepo(this)
         bg = findViewById(R.id.bg)
         heroTitle = findViewById(R.id.heroTitle)
@@ -73,6 +84,8 @@ class MainActivity : Activity() {
         netName = findViewById(R.id.netName)
         tvName = findViewById(R.id.tvName)
         grid = findViewById(R.id.grid)
+        saver = findViewById(R.id.saver)
+        saverBg = findViewById(R.id.saverBg)
 
         adapter = AppAdapter(onFocus = ::showHero, onClick = ::open, onLong = ::showMenu)
         layoutManager = GridLayoutManager(this, prefs.columns).apply {
@@ -88,41 +101,29 @@ class MainActivity : Activity() {
         findViewById<View>(R.id.btnWifi).setOnClickListener { launch(Intent(Settings.ACTION_WIFI_SETTINGS)) }
         findViewById<View>(R.id.btnSettings).setOnClickListener { launch(Intent(Settings.ACTION_SETTINGS)) }
         findViewById<View>(R.id.btnScreen).setOnClickListener { openScreenShare() }
+        findViewById<View>(R.id.btnSleep).setOnClickListener { showSleepMenu() }
         findViewById<View>(R.id.btnCustomize).setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
 
         watchNetwork()
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
-            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1) // สำหรับอ่านชื่อ Wi-Fi
+        if (!prefs.onboarded) startActivity(Intent(this, OnboardingActivity::class.java))
+        else if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1)
     }
 
     override fun onResume() {
         super.onResume()
+        L.apply(prefs.language)
         applyPrefs()
+        hideSaver()
         reload(focused?.pkg)
+        weatherAt = 0
         handler.post(tick)
         checkUpdateInBackground()
     }
 
-    /** เช็คอัปเดตวันละ 2 ครั้ง ถ้ามีจะขึ้นจุดบนปุ่ม "ปรับแต่ง" */
-    private fun checkUpdateInBackground() {
-        showUpdateBadge()
-        if (System.currentTimeMillis() - prefs.lastUpdateCheck < 12 * 3600_000L) return
-        prefs.lastUpdateCheck = System.currentTimeMillis()
-        Thread {
-            val r = Updater.fetchLatest() ?: return@Thread
-            prefs.latestTag = r.tag
-            runOnUiThread { showUpdateBadge() }
-        }.start()
-    }
-
-    private fun showUpdateBadge() {
-        val has = prefs.latestTag.isNotEmpty() && Updater.isNewer(prefs.latestTag, Updater.currentVersion(this))
-        findViewById<TextView>(R.id.btnCustomize).text = if (has) "ปรับแต่ง  ●" else "ปรับแต่ง"
-    }
-
     override fun onPause() {
         super.onPause()
-        handler.removeCallbacks(tick)
+        handler.removeCallbacksAndMessages(null)
         if (moving != null) endMove()
     }
 
@@ -144,16 +145,26 @@ class MainActivity : Activity() {
         updateStatus()
     }
 
-    // ---------- การตั้งค่า ----------
+    // ---------- การตั้งค่า / ข้อความ ----------
 
     private fun applyPrefs() {
         layoutManager.spanCount = prefs.columns
         adapter.labelMode = prefs.labels
         adapter.tileHeightPx = (prefs.tileHeightDp() * resources.displayMetrics.density).toInt()
+        adapter.cornerPx = prefs.cornerDp() * resources.displayMetrics.density
         statusPill.visibility = if (prefs.showStatus) View.VISIBLE else View.GONE
         findViewById<View>(R.id.btnScreen).visibility = if (prefs.showScreenBtn) View.VISIBLE else View.GONE
-        adapter.cornerPx = prefs.cornerDp() * resources.displayMetrics.density
-        if (!prefs.appColors) bg.setColors(DEFAULT_COLORS)
+        if (prefs.theme != 0) bg.setColors(Themes.palettes[prefs.theme])
+        findViewById<TextView>(R.id.btnInput).text = L.t("แหล่งสัญญาณ", "Inputs")
+        findViewById<TextView>(R.id.btnSettings).text = L.t("ตั้งค่าทีวี", "TV Settings")
+        findViewById<TextView>(R.id.btnScreen).text = L.t("จอ PC", "PC Screen")
+        updateClock()
+    }
+
+    private fun updateClock() {
+        timeView.text = ThaiDate.time()
+        val w = weather?.takeIf { prefs.weatherCity >= 0 }
+        dateView.text = ThaiDate.date() + (w?.let { "  ·  ${it.text}" } ?: "")
     }
 
     private fun reload(focusPkg: String?) {
@@ -163,9 +174,9 @@ class MainActivity : Activity() {
             val byPkg = apps.associateBy { it.pkg }
             val recent = prefs.recents().mapNotNull { byPkg[it] }.take(prefs.columns)
             if (recent.isNotEmpty()) {
-                entries += Entry.Header("เปิดล่าสุด")
+                entries += Entry.Header(L.t("เปิดล่าสุด", "Recent"))
                 recent.forEach { entries += Entry.App(it, true) }
-                entries += Entry.Header("แอปทั้งหมด")
+                entries += Entry.Header(L.t("แอปทั้งหมด", "All apps"))
             }
         }
         apps.forEach { entries += Entry.App(it, false) }
@@ -182,9 +193,14 @@ class MainActivity : Activity() {
         grid.post { grid.findViewHolderForAdapterPosition(idx)?.itemView?.findViewById<View>(R.id.tile)?.requestFocus() }
     }
 
-    // ---------- โหมดย้าย ----------
+    // ---------- ปุ่มรีโมต ----------
 
     override fun dispatchKeyEvent(e: KeyEvent): Boolean {
+        lastInput = SystemClock.uptimeMillis()
+        if (saver.visibility == View.VISIBLE) {
+            if (e.action == KeyEvent.ACTION_UP) hideSaver()
+            return true
+        }
         if (moving == null && e.action == KeyEvent.ACTION_DOWN && e.keyCode == KeyEvent.KEYCODE_DPAD_UP && jumpToTopBar()) return true
         val pkg = moving ?: return super.dispatchKeyEvent(e)
         if (e.action != KeyEvent.ACTION_DOWN) return true
@@ -220,8 +236,11 @@ class MainActivity : Activity() {
         return true
     }
 
+    // ---------- โหมดย้าย ----------
+
     private fun startMove(app: AppItem) {
         moving = app.pkg
+        adapter.movingText = L.t("◀▲▼▶ ย้าย · OK เสร็จ", "◀▲▼▶ move · OK done")
         adapter.movingPkg = app.pkg
         adapter.indexOf(app.pkg).takeIf { it >= 0 }?.let(::focusAt)
     }
@@ -247,10 +266,9 @@ class MainActivity : Activity() {
     private fun showHero(app: AppItem) {
         focused = app
         heroTitle.text = app.label
-        if (prefs.appColors) bg.setColors(colorCache.getOrPut(app.pkg) { colorsOf(app.art) })
+        if (prefs.theme == 0) bg.setColors(colorCache.getOrPut(app.pkg) { colorsOf(app.art) })
     }
 
-    /** ดึงสีเด่น 3 สี (หลัก, เข้ม, รอง) จากภาพขนาดเล็ก */
     private fun colorsOf(d: Drawable): IntArray {
         val bmp = Bitmap.createBitmap(96, 54, Bitmap.Config.ARGB_8888)
         val copy = d.constantState?.newDrawable(resources)?.mutate() ?: d
@@ -265,10 +283,100 @@ class MainActivity : Activity() {
         return intArrayOf(main, dark, accent)
     }
 
-    // ---------- เมนูแอป ----------
+    // ---------- โหมดพักหน้าจอ ----------
+
+    private fun checkIdle() {
+        val min = Prefs.SAVER_MINUTES[prefs.saver.coerceIn(0, Prefs.SAVER_MINUTES.size - 1)]
+        if (min == 0 || moving != null || saver.visibility == View.VISIBLE) return
+        if (SystemClock.uptimeMillis() - lastInput >= min * 60_000L) showSaver()
+    }
+
+    private val saverTick = object : Runnable {
+        override fun run() {
+            saverStep++
+            val pal = if (prefs.theme == 0) Themes.palettes[1 + saverStep % (Themes.palettes.size - 1)]
+            else Themes.palettes[prefs.theme].let { p -> IntArray(3) { p[(it + saverStep) % 3] } }
+            saverBg.setColors(pal)
+            findViewById<TextView>(R.id.saverTime).text = ThaiDate.time()
+            findViewById<TextView>(R.id.saverDate).text = ThaiDate.date()
+            findViewById<TextView>(R.id.saverWeather).text =
+                weather?.takeIf { prefs.weatherCity >= 0 }?.let { "${it.text}  ${Weather.cities[prefs.weatherCity].label}" } ?: ""
+            findViewById<View>(R.id.saverDim).animate().alpha(if (ThaiDate.isNight()) 0.45f else 0f).setDuration(2000).start()
+            // ขยับนาฬิกาเล็กน้อยกันจอ burn-in
+            if (saverStep % 6 == 0) findViewById<View>(R.id.saverClock).animate()
+                .translationX(Random.nextInt(-120, 120).toFloat()).translationY(Random.nextInt(-60, 60).toFloat())
+                .setDuration(4000).start()
+            handler.postDelayed(this, 10_000)
+        }
+    }
+
+    private fun showSaver() {
+        saver.alpha = 0f
+        saver.visibility = View.VISIBLE
+        saver.animate().alpha(1f).setDuration(800).start()
+        handler.post(saverTick)
+    }
+
+    private fun hideSaver() {
+        handler.removeCallbacks(saverTick)
+        if (saver.visibility != View.VISIBLE) return
+        saver.animate().alpha(0f).setDuration(250).withEndAction { saver.visibility = View.GONE }.start()
+        lastInput = SystemClock.uptimeMillis()
+    }
+
+    // ---------- ตั้งเวลาปิด ----------
+
+    private fun showSleepMenu() {
+        val svc = HomeOverrideService.instance
+        if (svc == null) {
+            AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(L.t("ตั้งเวลาปิด", "Sleep timer"))
+                .setMessage(L.t("ต้องเปิด \"แทนที่ปุ่ม Home\" ในหน้าปรับแต่งก่อน (ใช้บริการเดียวกันในการปิดหน้าจอ)",
+                    "Turn on \"Replace Home button\" in Customize first (the same service turns the screen off)."))
+                .setPositiveButton(L.t("ไปที่ปรับแต่ง", "Open Customize")) { _, _ -> startActivity(Intent(this, SettingsActivity::class.java)) }
+                .setNegativeButton(L.t("ปิด", "Close"), null).show()
+            return
+        }
+        val labels = Prefs.SLEEP_MINUTES.map { m ->
+            if (m == 0) L.t("ไม่ตั้งเวลา", "Off") else if (m < 60) L.t("$m นาที", "$m min")
+            else L.t("${m / 60}${if (m % 60 > 0) ".5" else ""} ชั่วโมง", "${m / 60}${if (m % 60 > 0) ".5" else ""} h")
+        }.toTypedArray()
+        AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle(L.t("ปิดทีวีใน…", "Turn off TV in…"))
+            .setItems(labels) { _, which ->
+                val m = Prefs.SLEEP_MINUTES[which]
+                prefs.sleepAt = if (m == 0) 0 else System.currentTimeMillis() + m * 60_000L
+                svc.scheduleSleep(prefs.sleepAt)
+                updateSleepPill()
+            }.show()
+    }
+
+    private fun updateSleepPill() {
+        val left = prefs.sleepAt - System.currentTimeMillis()
+        findViewById<TextView>(R.id.btnSleep).text = if (prefs.sleepAt > 0 && left > 0)
+            L.t("⏾ ปิดใน ${(left / 60_000) + 1} นาที", "⏾ Off in ${(left / 60_000) + 1} min")
+        else L.t("ตั้งเวลาปิด", "Sleep")
+    }
+
+    // ---------- สภาพอากาศ ----------
+
+    private fun refreshWeather() {
+        val idx = prefs.weatherCity
+        if (idx < 0 || idx >= Weather.cities.size) { weather = null; return }
+        if (System.currentTimeMillis() - weatherAt < 30 * 60_000L) return
+        weatherAt = System.currentTimeMillis()
+        Thread {
+            val w = Weather.fetch(Weather.cities[idx]) ?: return@Thread
+            runOnUiThread { weather = w; updateClock() }
+        }.start()
+    }
+
+    // ---------- เมนูแอป / เปิดแอป ----------
 
     private fun showMenu(app: AppItem) {
-        val items = arrayOf("ย้ายตำแหน่ง", if (app.hidden) "เลิกซ่อน" else "ซ่อนแอปนี้", "ข้อมูลแอป")
+        val items = arrayOf(L.t("ย้ายตำแหน่ง", "Move"),
+            if (app.hidden) L.t("เลิกซ่อน", "Unhide") else L.t("ซ่อนแอปนี้", "Hide"),
+            L.t("ข้อมูลแอป", "App info"))
         AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
             .setTitle(app.label)
             .setItems(items) { _, which ->
@@ -293,24 +401,43 @@ class MainActivity : Activity() {
             Intent(Settings.ACTION_SETTINGS),
         )
         if (candidates.none { it.resolveActivity(packageManager) != null && launch(it, quiet = true) })
-            Toast.makeText(this, "ไม่พบหน้าเลือกแหล่งสัญญาณ", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, L.t("ไม่พบหน้าเลือกแหล่งสัญญาณ", "Input picker not found"), Toast.LENGTH_SHORT).show()
     }
 
     private fun openScreenShare() {
         val i = listOf("ph.spacedesk.beta", "ph.spacedesk.viewer", "com.limelight")
             .firstNotNullOfOrNull { packageManager.getLeanbackLaunchIntentForPackage(it) ?: packageManager.getLaunchIntentForPackage(it) }
-        if (i != null) launch(i) else Toast.makeText(this, "ติดตั้ง spacedesk หรือ Moonlight ก่อน", Toast.LENGTH_LONG).show()
+        if (i != null) launch(i)
+        else Toast.makeText(this, L.t("ติดตั้ง spacedesk หรือ Moonlight ก่อน", "Install spacedesk or Moonlight first"), Toast.LENGTH_LONG).show()
     }
 
     private fun launch(i: Intent, quiet: Boolean = false): Boolean = try {
         startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
     } catch (e: ActivityNotFoundException) {
-        if (!quiet) Toast.makeText(this, "เปิดไม่ได้", Toast.LENGTH_SHORT).show(); false
+        if (!quiet) Toast.makeText(this, L.t("เปิดไม่ได้", "Can't open"), Toast.LENGTH_SHORT).show(); false
     } catch (e: SecurityException) {
-        if (!quiet) Toast.makeText(this, "ไม่มีสิทธิ์เปิด", Toast.LENGTH_SHORT).show(); false
+        if (!quiet) Toast.makeText(this, L.t("ไม่มีสิทธิ์เปิด", "Not allowed"), Toast.LENGTH_SHORT).show(); false
     }
 
-    // ---------- สถานะเครือข่าย ----------
+    // ---------- อัปเดต ----------
+
+    private fun checkUpdateInBackground() {
+        showUpdateBadge()
+        if (System.currentTimeMillis() - prefs.lastUpdateCheck < 12 * 3600_000L) return
+        prefs.lastUpdateCheck = System.currentTimeMillis()
+        Thread {
+            val r = Updater.fetchLatest() ?: return@Thread
+            prefs.latestTag = r.tag
+            runOnUiThread { showUpdateBadge() }
+        }.start()
+    }
+
+    private fun showUpdateBadge() {
+        val has = prefs.latestTag.isNotEmpty() && Updater.isNewer(prefs.latestTag, Updater.currentVersion(this))
+        findViewById<TextView>(R.id.btnCustomize).text = L.t("ปรับแต่ง", "Customize") + if (has) "  ●" else ""
+    }
+
+    // ---------- เครือข่าย ----------
 
     private fun watchNetwork() {
         val cm = getSystemService(ConnectivityManager::class.java)
@@ -327,14 +454,14 @@ class MainActivity : Activity() {
         val cm = getSystemService(ConnectivityManager::class.java)
         val caps = cm.getNetworkCapabilities(cm.activeNetwork)
         val (icon, name) = when {
-            caps == null -> R.drawable.ic_wifi_off to "ไม่ได้เชื่อมต่อ"
+            caps == null -> R.drawable.ic_wifi_off to L.t("ไม่ได้เชื่อมต่อ", "Not connected")
             caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> R.drawable.ic_ethernet to "Ethernet"
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> R.drawable.ic_wifi to (wifiName() ?: "Wi-Fi")
-            else -> R.drawable.ic_wifi to "เชื่อมต่อแล้ว"
+            else -> R.drawable.ic_wifi to L.t("เชื่อมต่อแล้ว", "Connected")
         }
         netIcon.setImageResource(icon)
         val offline = caps != null && !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-        netName.text = if (offline) "$name · ไม่มีอินเทอร์เน็ต" else name
+        netName.text = if (offline) "$name · " + L.t("ไม่มีอินเทอร์เน็ต", "No internet") else name
         netIcon.alpha = if (caps == null || offline) 0.5f else 1f
     }
 
@@ -345,7 +472,7 @@ class MainActivity : Activity() {
     }
 
     companion object {
-        private val TOP_BUTTONS = intArrayOf(R.id.btnInput, R.id.btnWifi, R.id.btnSettings, R.id.btnScreen, R.id.btnCustomize)
-        val DEFAULT_COLORS = intArrayOf(0xFF4F46E5.toInt(), 0xFF1F2937.toInt(), 0xFF0EA5E9.toInt())
+        private val TOP_BUTTONS = intArrayOf(R.id.btnInput, R.id.btnWifi, R.id.btnSettings, R.id.btnScreen, R.id.btnSleep, R.id.btnCustomize)
+        val DEFAULT_COLORS = Themes.palettes[1]
     }
 }

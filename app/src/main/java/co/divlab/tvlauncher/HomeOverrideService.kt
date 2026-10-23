@@ -15,6 +15,31 @@ import android.view.accessibility.AccessibilityEvent
  */
 class HomeOverrideService : AccessibilityService() {
     private var last = 0L
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val sleepRun = Runnable {
+        Prefs(this).sleepAt = 0
+        // ปิดหน้าจอ / เข้าสู่ standby
+        if (android.os.Build.VERSION.SDK_INT >= 28) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+    }
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        instance = this
+        scheduleSleep(Prefs(this).sleepAt)
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacks(sleepRun)
+        if (instance === this) instance = null
+        super.onDestroy()
+    }
+
+    /** ตั้งเวลาปิดทีวี (0 = ยกเลิก) */
+    fun scheduleSleep(at: Long) {
+        handler.removeCallbacks(sleepRun)
+        val delay = at - System.currentTimeMillis()
+        if (at > 0 && delay > 0) handler.postDelayed(sleepRun, delay)
+    }
 
     override fun onKeyEvent(e: KeyEvent): Boolean {
         if (e.keyCode != KeyEvent.KEYCODE_HOME) return false
@@ -38,6 +63,8 @@ class HomeOverrideService : AccessibilityService() {
     }
 
     companion object {
+        @Volatile var instance: HomeOverrideService? = null
+
         val STOCK = setOf(
             "com.google.android.apps.tv.launcherx",
             "com.google.android.tvlauncher",

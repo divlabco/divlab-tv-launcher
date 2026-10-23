@@ -40,6 +40,11 @@
             </intent-filter>
         </activity>
         <activity
+            android:name=".OnboardingActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout" />
+        <activity
             android:name=".SettingsActivity"
             android:exported="false"
             android:screenOrientation="landscape"

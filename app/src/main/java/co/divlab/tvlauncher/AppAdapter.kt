@@ -26,6 +26,7 @@ class AppAdapter(
     var labelMode = 1
     var tileHeightPx = 0
     var cornerPx = 0f
+    var movingText = "◀▲▼▶ ย้าย · OK เสร็จ"
 
     /** พื้นหลังไทล์ตามรูปทรงที่เลือก (ปกติ / โฟกัส / กำลังย้าย) */
     private fun tileBg(d: Float): android.graphics.drawable.Drawable {
@@ -113,7 +114,7 @@ class AppAdapter(
             h.icon.scaleType = ImageView.ScaleType.FIT_CENTER
             h.icon.setPadding(pad, pad, pad, pad)
         }
-        h.label.text = if (moving) "◀▲▼▶ ย้าย · OK เสร็จ" else app.label
+        h.label.text = if (moving) movingText else app.label
         applyLabel(h, moving, h.tile.isFocused)
         h.tile.isSelected = moving
         h.itemView.alpha = if (app.hidden) 0.4f else 1f

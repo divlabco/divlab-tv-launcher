@@ -2,115 +2,118 @@ package co.divlab.tvlauncher
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.DownloadManager
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
-import android.view.LayoutInflater
-import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 
-/** หน้าปรับแต่ง launcher แบบ tvOS: ซ้ายเป็นหัวเรื่อง, ขวาเป็นการ์ดกระจกรายการตั้งค่า */
+/** หน้าปรับแต่ง launcher แบบ tvOS */
 class SettingsActivity : Activity() {
     private lateinit var prefs: Prefs
     private lateinit var hint: TextView
-    private val rows = ArrayList<Pair<Opt, View>>()
-    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private lateinit var rows: List<Row>
+    private val handler = Handler(Looper.getMainLooper())
     private var latest: Updater.Release? = null
-    private var updateState = "กำลังตรวจสอบ…"
+    private var updateState = ""
     private var downloadId = -1L
-
-    /** choice = เปลี่ยนค่าด้วย ◀ ▶ (OK = ถัดไป), action = กด OK เพื่อทำ */
-    private class Opt(
-        val title: String, val hint: String, val value: () -> String,
-        val choice: Boolean = true, val change: (Int) -> Unit,
-    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_settings)
         prefs = Prefs(this)
+        L.apply(prefs.language)
+        setContentView(R.layout.activity_settings)
         hint = findViewById(R.id.hint)
-        findViewById<AuraView>(R.id.bg).setColors(MainActivity.DEFAULT_COLORS)
-        findViewById<TextView>(R.id.version).text =
-            "divlab Launcher " + packageManager.getPackageInfo(packageName, 0).versionName
+        findViewById<AuraView>(R.id.bg).setColors(Themes.palettes[if (prefs.theme == 0) 1 else prefs.theme])
 
-        val onOff = { b: Boolean -> if (b) "เปิด" else "ปิด" }
-        fun cyc(v: Int, n: Int, d: Int) = ((v + d) % n + n) % n
-        val opts = listOf(
-            Opt("อัปเดต", "ตรวจสอบเวอร์ชันใหม่จาก GitHub แล้วติดตั้งทับได้ทันที (ไม่เสียการตั้งค่า)",
+        val onOff = { b: Boolean -> if (b) L.t("เปิด", "On") else L.t("ปิด", "Off") }
+        val cyc = Rows::cyc
+        rows = listOf(
+            Row({ L.t("อัปเดต", "Update") },
+                { L.t("ตรวจสอบเวอร์ชันใหม่จาก GitHub แล้วติดตั้งทับได้ทันที (ไม่เสียการตั้งค่า)", "Check GitHub for a new version and install it (keeps your settings)") },
                 { updateState }, choice = false) { onUpdateClick() },
-            Opt("รูปทรงไอคอน", "เลือกความโค้งของมุมไอคอน",
-                { arrayOf("เหลี่ยม", "มน", "มนมาก", "แคปซูล")[prefs.iconShape] }) { prefs.iconShape = cyc(prefs.iconShape, 4, it) },
-            Opt("ขนาดไอคอน", "ไอคอนเล็กลง = เห็นแอปได้มากขึ้นในหน้าเดียว",
-                { arrayOf("เล็ก", "กลาง", "ใหญ่")[prefs.iconSize] }) { prefs.iconSize = cyc(prefs.iconSize, 3, it) },
-            Opt("จำนวนคอลัมน์", "จำนวนแอปต่อแถว (5–8)",
+            Row({ L.t("ภาษา", "Language") }, { L.t("ภาษาของ launcher", "Launcher language") },
+                { arrayOf(L.t("ตามระบบ", "System"), "ไทย", "English")[prefs.language] }) {
+                prefs.language = cyc(prefs.language, 3, it); L.apply(prefs.language); refreshAll()
+            },
+            Row({ L.t("ธีม", "Theme") }, { L.t("สีพื้นหลัง: ตามแอปที่เลือก หรือชุดสีคงที่", "Background colours: from the selected app or a fixed palette") },
+                { Themes.name(prefs.theme) }) {
+                prefs.theme = cyc(prefs.theme, Themes.palettes.size, it)
+                findViewById<AuraView>(R.id.bg).setColors(Themes.palettes[if (prefs.theme == 0) 1 else prefs.theme])
+            },
+            Row({ L.t("รูปทรงไอคอน", "Icon shape") }, { L.t("ความโค้งของมุมไอคอน", "Corner roundness of app tiles") },
+                { arrayOf(L.t("เหลี่ยม", "Square"), L.t("มน", "Rounded"), L.t("มนมาก", "Extra round"), L.t("แคปซูล", "Capsule"))[prefs.iconShape] }) {
+                prefs.iconShape = cyc(prefs.iconShape, 4, it)
+            },
+            Row({ L.t("ขนาดไอคอน", "Icon size") }, { L.t("ไอคอนเล็กลง = เห็นแอปได้มากขึ้น", "Smaller tiles fit more apps") },
+                { arrayOf(L.t("เล็ก", "Small"), L.t("กลาง", "Medium"), L.t("ใหญ่", "Large"))[prefs.iconSize] }) {
+                prefs.iconSize = cyc(prefs.iconSize, 3, it)
+            },
+            Row({ L.t("จำนวนคอลัมน์", "Columns") }, { L.t("จำนวนแอปต่อแถว (5–8)", "Apps per row (5–8)") },
                 { "${prefs.columns}" }) { prefs.columns = 5 + cyc(prefs.columns - 5, 4, it) },
-            Opt("ชื่อแอปใต้ไอคอน", "เลือกว่าจะแสดงชื่อแอปใต้ไอคอนเมื่อไหร่",
-                { arrayOf("ไม่แสดง", "เฉพาะที่เลือก", "แสดงตลอด")[prefs.labels] }) { prefs.labels = cyc(prefs.labels, 3, it) },
-            Opt("แถวเปิดล่าสุด", "แสดงแอปที่เปิดล่าสุดไว้บนสุด กดเพื่อกลับไปดูต่อได้ทันที",
+            Row({ L.t("ชื่อแอปใต้ไอคอน", "App names") }, { L.t("แสดงชื่อแอปใต้ไอคอนเมื่อไหร่", "When to show names under tiles") },
+                { arrayOf(L.t("ไม่แสดง", "Never"), L.t("เฉพาะที่เลือก", "Focused"), L.t("แสดงตลอด", "Always"))[prefs.labels] }) {
+                prefs.labels = cyc(prefs.labels, 3, it)
+            },
+            Row({ L.t("สภาพอากาศ", "Weather") }, { L.t("แสดงอุณหภูมิข้างวันที่ (Open-Meteo)", "Show temperature next to the date (Open-Meteo)") },
+                { if (prefs.weatherCity < 0) L.t("ปิด", "Off") else Weather.cities[prefs.weatherCity].label }) {
+                prefs.weatherCity = cyc(prefs.weatherCity + 1, Weather.cities.size + 1, it) - 1
+            },
+            Row({ L.t("พักหน้าจอ", "Screensaver") }, { L.t("นาฬิกาเต็มจอเมื่อไม่ได้กดรีโมต (หรี่ลงตอนกลางคืน)", "Full-screen clock when idle (dims at night)") },
+                { Prefs.SAVER_MINUTES[prefs.saver].let { if (it == 0) L.t("ปิด", "Off") else L.t("$it นาที", "$it min") } }) {
+                prefs.saver = cyc(prefs.saver, Prefs.SAVER_MINUTES.size, it)
+            },
+            Row({ L.t("แถวเปิดล่าสุด", "Recent row") }, { L.t("แอปที่เปิดล่าสุดอยู่บนสุด", "Recently opened apps on top") },
                 { onOff(prefs.showRecent) }) { prefs.showRecent = !prefs.showRecent },
-            Opt("สีพื้นหลังตามแอป", "เปลี่ยนสี gradient พื้นหลังตามแอปที่เลือก",
-                { onOff(prefs.appColors) }) { prefs.appColors = !prefs.appColors },
-            Opt("ชื่อทีวีและเครือข่าย", "แสดงชื่อทีวีและ Wi-Fi/LAN ที่เชื่อมอยู่ใต้นาฬิกา",
+            Row({ L.t("ชื่อทีวีและเครือข่าย", "TV name & network") }, { L.t("แสดงใต้นาฬิกา", "Shown under the clock") },
                 { onOff(prefs.showStatus) }) { prefs.showStatus = !prefs.showStatus },
-            Opt("ปุ่มจอ PC", "แสดงปุ่มเปิด spacedesk / Moonlight ที่แถบด้านบน",
+            Row({ L.t("ปุ่มจอ PC", "PC Screen button") }, { L.t("ปุ่มเปิด spacedesk / Moonlight ที่แถบด้านบน", "Top-bar button for spacedesk / Moonlight") },
                 { onOff(prefs.showScreenBtn) }) { prefs.showScreenBtn = !prefs.showScreenBtn },
-            Opt("แสดงแอปที่ซ่อน", "แสดงแอปที่ซ่อนไว้แบบจาง ๆ เพื่อเลิกซ่อน",
+            Row({ L.t("แสดงแอปที่ซ่อน", "Show hidden apps") }, { L.t("แสดงแบบจาง ๆ เพื่อเลิกซ่อน", "Shown dimmed so you can unhide them") },
                 { onOff(prefs.showHidden) }) { prefs.showHidden = !prefs.showHidden },
-            Opt("แทนที่ปุ่ม Home", "ให้ปุ่ม Home บนรีโมตเปิด launcher นี้เสมอ",
+            Row({ L.t("แทนที่ปุ่ม Home", "Replace Home button") }, { L.t("ปุ่ม Home บนรีโมตเปิด launcher นี้ (ต้องเปิดเพื่อใช้ตั้งเวลาปิดด้วย)", "Remote Home opens this launcher (also needed for the sleep timer)") },
                 { onOff(HomeOverrideService.isEnabled(this)) }) { toggleHome() },
-            Opt("ล้างรายการเปิดล่าสุด", "ลบประวัติแอปที่เปิดล่าสุดทั้งหมด", { "" }, choice = false) {
-                prefs.clearRecents(); toast("ล้างแล้ว")
-            },
-            Opt("รีเซ็ตลำดับแอป", "เรียงแอปตามตัวอักษรเหมือนตอนติดตั้งใหม่", { "" }, choice = false) {
-                prefs.resetOrder(); toast("รีเซ็ตแล้ว")
-            },
+            Row({ L.t("แนะนำการใช้งาน", "Setup guide") }, { L.t("เปิดหน้าแนะนำและตั้งค่าสิทธิ์อีกครั้ง", "Run the welcome & permission guide again") },
+                { "" }, choice = false) { startActivity(Intent(this, OnboardingActivity::class.java)) },
+            Row({ L.t("ล้างรายการเปิดล่าสุด", "Clear recents") }, { L.t("ลบประวัติแอปที่เปิดล่าสุด", "Forget recently opened apps") },
+                { "" }, choice = false) { prefs.clearRecents(); toast(L.t("ล้างแล้ว", "Cleared")) },
+            Row({ L.t("รีเซ็ตลำดับแอป", "Reset app order") }, { L.t("เรียงแอปตามตัวอักษร", "Sort apps alphabetically") },
+                { "" }, choice = false) { prefs.resetOrder(); toast(L.t("รีเซ็ตแล้ว", "Reset")) },
         )
-
-        val container = findViewById<LinearLayout>(R.id.rows)
-        val inf = LayoutInflater.from(this)
-        opts.forEach { o ->
-            val v = inf.inflate(R.layout.item_setting, container, false)
-            v.findViewById<TextView>(R.id.title).text = o.title
-            v.setOnClickListener { o.change(+1); refresh() }
-            v.setOnKeyListener { _, code, e ->
-                if (!o.choice || e.action != android.view.KeyEvent.ACTION_DOWN) return@setOnKeyListener false
-                val d = when (code) {
-                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> -1
-                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> +1
-                    else -> return@setOnKeyListener false
-                }
-                o.change(d); refresh(); true
-            }
-            v.setOnFocusChangeListener { _, f ->
-                v.animate().scaleX(if (f) 1.03f else 1f).scaleY(if (f) 1.03f else 1f).setDuration(120).start()
-                if (f) hint.text = o.hint
-            }
-            container.addView(v)
-            rows += o to v
-        }
-        refresh()
-        rows.firstOrNull()?.second?.requestFocus()
+        Rows.build(findViewById<LinearLayout>(R.id.rows), rows, ::refreshAll) { hint.text = it }
+        refreshAll()
+        rows.first().view.requestFocus()
         checkUpdate()
     }
 
+    override fun onResume() { super.onResume(); refreshAll() }
     override fun onDestroy() { handler.removeCallbacksAndMessages(null); super.onDestroy() }
 
+    private fun refreshAll() {
+        findViewById<TextView>(R.id.pageTitle).text = L.t("ปรับแต่ง", "Customize")
+        findViewById<TextView>(R.id.version).text = "divlab Launcher " + Updater.currentVersion(this)
+        if (::rows.isInitialized) rows.forEach { it.refresh() }
+    }
+
+    // ---------- อัปเดต ----------
+
     private fun checkUpdate() {
-        updateState = "กำลังตรวจสอบ…"; refresh()
+        updateState = L.t("กำลังตรวจสอบ…", "Checking…"); refreshAll()
         Thread {
             val r = Updater.fetchLatest()
             runOnUiThread {
                 latest = r
                 if (r != null) prefs.latestTag = r.tag
                 updateState = when {
-                    r == null -> "ตรวจสอบไม่ได้"
-                    Updater.isNewer(r.tag, Updater.currentVersion(this)) -> "มี ${r.tag} · กดเพื่ออัปเดต"
-                    else -> "เป็นเวอร์ชันล่าสุดแล้ว"
+                    r == null -> L.t("ตรวจสอบไม่ได้", "Couldn't check")
+                    Updater.isNewer(r.tag, Updater.currentVersion(this)) -> L.t("มี ${r.tag} · กดเพื่ออัปเดต", "${r.tag} available · press to update")
+                    else -> L.t("เป็นเวอร์ชันล่าสุดแล้ว", "Up to date")
                 }
-                refresh()
+                refreshAll()
             }
         }.start()
     }
@@ -119,7 +122,7 @@ class SettingsActivity : Activity() {
         val r = latest
         if (r == null || !Updater.isNewer(r.tag, Updater.currentVersion(this))) { checkUpdate(); return }
         if (downloadId >= 0) return
-        // ไม่เช็ค canRequestPackageInstalls() เพราะ TCL บางรุ่นรายงานผิด — ให้ตัวติดตั้งของระบบถามเองถ้ายังไม่ได้สิทธิ์
+        // ไม่เช็ค canRequestPackageInstalls() เพราะ TCL บางรุ่นรายงานผิด — ให้ตัวติดตั้งของระบบถามเอง
         downloadId = Updater.download(this, r)
         pollDownload()
     }
@@ -127,27 +130,26 @@ class SettingsActivity : Activity() {
     private fun pollDownload() {
         val (st, pct) = Updater.progress(this, downloadId)
         when (st) {
-            android.app.DownloadManager.STATUS_SUCCESSFUL -> {
-                updateState = "ดาวน์โหลดเสร็จ · กำลังติดตั้ง"
-                if (!Updater.install(this, downloadId)) updateState = "ติดตั้งไม่ได้"
+            DownloadManager.STATUS_SUCCESSFUL -> {
+                updateState = L.t("ดาวน์โหลดเสร็จ · กำลังติดตั้ง", "Downloaded · installing")
+                if (!Updater.install(this, downloadId)) updateState = L.t("ติดตั้งไม่ได้", "Install failed")
                 downloadId = -1
             }
-            android.app.DownloadManager.STATUS_FAILED -> { updateState = "ดาวน์โหลดไม่สำเร็จ · กดลองใหม่"; downloadId = -1 }
-            else -> { updateState = "กำลังดาวน์โหลด $pct%"; handler.postDelayed(::pollDownload, 700) }
+            DownloadManager.STATUS_FAILED -> { updateState = L.t("ดาวน์โหลดไม่สำเร็จ · กดลองใหม่", "Download failed · retry"); downloadId = -1 }
+            else -> { updateState = L.t("กำลังดาวน์โหลด $pct%", "Downloading $pct%"); handler.postDelayed(::pollDownload, 700) }
         }
-        refresh()
+        refreshAll()
     }
 
-    override fun onResume() { super.onResume(); refresh() }
-
-    private fun refresh() = rows.forEach { (o, v) ->
-        val value = o.value()
-        v.findViewById<TextView>(R.id.value).text = if (o.choice && value.isNotEmpty()) "‹  $value  ›" else value
-    }
+    // ---------- ปุ่ม Home ----------
 
     private fun toggleHome() {
         val r = HomeOverrideService.toggle(this)
-        if (r != null) { toast(if (r) "ปุ่ม Home จะมาที่ launcher นี้" else "กลับไปใช้ปุ่ม Home เดิม"); return }
+        if (r != null) {
+            toast(if (r) L.t("ปุ่ม Home จะมาที่ launcher นี้", "Home now opens this launcher") else L.t("กลับไปใช้ปุ่ม Home เดิม", "Home button restored"))
+            handler.postDelayed(::refreshAll, 500)
+            return
+        }
         val opened = listOf(
             Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
             Intent().setClassName("com.android.tv.settings", "com.android.tv.settings.accessibility.AccessibilityActivity"),
@@ -156,9 +158,10 @@ class SettingsActivity : Activity() {
                 runCatching { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
         }
         if (!opened) AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
-            .setTitle("แทนที่ปุ่ม Home")
-            .setMessage("รันคำสั่งนี้บนคอมพิวเตอร์ครั้งเดียว แล้วกดอีกครั้ง:\n\nadb shell pm grant $packageName android.permission.WRITE_SECURE_SETTINGS")
-            .setPositiveButton("ตกลง", null).show()
+            .setTitle(L.t("แทนที่ปุ่ม Home", "Replace Home button"))
+            .setMessage(L.t("รันคำสั่งนี้บนคอมพิวเตอร์ครั้งเดียว แล้วกดอีกครั้ง:", "Run this once from a computer, then press again:") +
+                "\n\nadb shell pm grant $packageName android.permission.WRITE_SECURE_SETTINGS")
+            .setPositiveButton("OK", null).show()
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
