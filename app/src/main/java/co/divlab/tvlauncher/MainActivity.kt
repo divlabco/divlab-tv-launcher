@@ -165,6 +165,7 @@ class MainActivity : Activity() {
     // ---------- โหมดย้าย ----------
 
     override fun dispatchKeyEvent(e: KeyEvent): Boolean {
+        if (moving == null && e.action == KeyEvent.ACTION_DOWN && e.keyCode == KeyEvent.KEYCODE_DPAD_UP && jumpToTopBar()) return true
         val pkg = moving ?: return super.dispatchKeyEvent(e)
         if (e.action != KeyEvent.ACTION_DOWN) return true
         val cols = prefs.columns
@@ -176,6 +177,26 @@ class MainActivity : Activity() {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> if (e.repeatCount == 0) endMove()
         }
+        return true
+    }
+
+    /** กดขึ้นจากแถวแรกของ grid → ไปที่ปุ่มด้านบนที่อยู่ใกล้ที่สุด */
+    private fun jumpToTopBar(): Boolean {
+        val cur = currentFocus ?: return false
+        val holder = grid.findContainingViewHolder(cur) ?: return false
+        val pos = holder.bindingAdapterPosition
+        val entries = adapter.entries
+        val e = entries.getOrNull(pos) as? Entry.App ?: return false
+        val firstOfSection = entries.indexOfFirst { it is Entry.App && it.recent == e.recent }
+        val inFirstRow = pos - firstOfSection < prefs.columns
+        if (!inFirstRow || (!e.recent && entries.any { it is Entry.App && it.recent })) return false
+        val loc = IntArray(2); cur.getLocationOnScreen(loc)
+        val cx = loc[0] + cur.width / 2
+        val target = TOP_BUTTONS.map { findViewById<View>(it) }.filter { it.isShown }.minByOrNull {
+            it.getLocationOnScreen(loc); kotlin.math.abs(loc[0] + it.width / 2 - cx)
+        } ?: return false
+        grid.scrollToPosition(0)
+        target.requestFocus()
         return true
     }
 
@@ -304,6 +325,7 @@ class MainActivity : Activity() {
     }
 
     companion object {
+        private val TOP_BUTTONS = intArrayOf(R.id.btnInput, R.id.btnWifi, R.id.btnSettings, R.id.btnScreen, R.id.btnCustomize)
         val DEFAULT_COLORS = intArrayOf(0xFF4F46E5.toInt(), 0xFF1F2937.toInt(), 0xFF0EA5E9.toInt())
     }
 }
