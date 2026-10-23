@@ -12,12 +12,21 @@ android {
         versionCode = 3
         versionName = "0.3.0"
     }
+    val ks = System.getenv("KEYSTORE_FILE")
+    signingConfigs {
+        if (ks != null) create("divlab") {
+            storeFile = file(ks)
+            storePassword = System.getenv("KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("KEY_ALIAS") ?: "divlab"
+            keyPassword = System.getenv("KEYSTORE_PASSWORD")
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("divlab") ?: signingConfigs.getByName("debug")
         }
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }

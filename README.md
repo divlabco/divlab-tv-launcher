@@ -10,7 +10,7 @@ Launcher สำหรับ Android TV / Google TV แบบเบา หน้�
 - Kotlin + Android Views ล้วน (ไม่ใช้ Compose/Leanback เพื่อให้เบาบนทีวี RAM น้อย)
 
 ## Build
-Push ขึ้น GitHub แล้ว GitHub Actions จะ build ให้ → ดาวน์โหลดจาก **Actions → artifact `divlab-launcher`**
+Push ขึ้น GitHub แล้ว GitHub Actions จะ build ให้ → ดาวน์โหลดจาก **[divlabco/divlab-tv-launcher](https://github.com/divlabco/divlab-tv-launcher) → Actions → artifact `divlab-launcher`**
 (push tag `v0.1.0` เพื่อสร้าง Release พร้อม APK)
 
 หรือเปิดใน Android Studio แล้ว Build → Build APK
@@ -41,3 +41,6 @@ adb shell settings put secure enabled_accessibility_services co.divlab.tvlaunche
 adb shell settings put secure accessibility_enabled 1
 ```
 ปิด: `adb shell settings delete secure enabled_accessibility_services`
+
+## Signing
+Workflow เซ็น APK ด้วย key จาก secret `KEYSTORE_BASE64` + `KEYSTORE_PASSWORD` (alias `divlab`) เพื่อให้อัปเดตทับได้ทุกเวอร์ชัน
