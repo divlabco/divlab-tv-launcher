@@ -25,6 +25,20 @@ class AppAdapter(
     /** 0 = ไม่แสดง, 1 = เฉพาะที่เลือก, 2 = ตลอด */
     var labelMode = 1
     var tileHeightPx = 0
+    var cornerPx = 0f
+
+    /** พื้นหลังไทล์ตามรูปทรงที่เลือก (ปกติ / โฟกัส / กำลังย้าย) */
+    private fun tileBg(d: Float): android.graphics.drawable.Drawable {
+        val r = minOf(cornerPx, tileHeightPx / 2f)
+        fun g(stroke: Int, color: Int) = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = r; setColor(0xFF2A2A2E.toInt()); if (stroke > 0) setStroke(stroke, color)
+        }
+        return android.graphics.drawable.StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_selected), g((3 * d).toInt(), 0xFF60A5FA.toInt()))
+            addState(intArrayOf(android.R.attr.state_focused), g((2 * d).toInt(), 0xE6FFFFFF.toInt()))
+            addState(intArrayOf(), g(0, 0))
+        }
+    }
 
     var movingPkg: String? = null
         set(v) {
@@ -84,6 +98,11 @@ class AppAdapter(
         val moving = !e.recent && app.pkg == movingPkg
         if (tileHeightPx > 0 && h.tile.layoutParams.height != tileHeightPx) {
             h.tile.layoutParams = h.tile.layoutParams.apply { height = tileHeightPx }
+        }
+        if (h.tile.getTag(R.id.tile) != cornerPx) {
+            h.tile.background = tileBg(h.tile.resources.displayMetrics.density)
+            h.tile.setTag(R.id.tile, cornerPx)
+            h.tile.invalidateOutline()
         }
         h.icon.setImageDrawable(app.art)
         if (app.isBanner) {

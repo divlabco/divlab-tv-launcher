@@ -36,6 +36,17 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("showHidden", false)
         set(v) = sp.edit().putBoolean("showHidden", v).apply()
 
+    var showScreenBtn: Boolean
+        get() = sp.getBoolean("showScreenBtn", true)
+        set(v) = sp.edit().putBoolean("showScreenBtn", v).apply()
+
+    /** 0 = เหลี่ยม, 1 = มน, 2 = มนมาก, 3 = แคปซูล */
+    var iconShape: Int
+        get() = sp.getInt("iconShape", 1)
+        set(v) = sp.edit().putInt("iconShape", v).apply()
+
+    fun cornerDp() = floatArrayOf(4f, 14f, 24f, 999f)[iconShape.coerceIn(0, 3)]
+
     fun tileHeightDp() = intArrayOf(60, 72, 88)[iconSize.coerceIn(0, 2)]
 
     fun recents(): List<String> = sp.getString("recents", "")!!.split(",").filter { it.isNotEmpty() }
@@ -44,6 +55,14 @@ class Prefs(ctx: Context) {
         val l = (listOf(pkg) + recents().filter { it != pkg }).take(12)
         sp.edit().putString("recents", l.joinToString(",")).apply()
     }
+
+    var lastUpdateCheck: Long
+        get() = sp.getLong("lastUpdateCheck", 0)
+        set(v) = sp.edit().putLong("lastUpdateCheck", v).apply()
+
+    var latestTag: String
+        get() = sp.getString("latestTag", "")!!
+        set(v) = sp.edit().putString("latestTag", v).apply()
 
     fun clearRecents() = sp.edit().remove("recents").apply()
     fun resetOrder() = sp.edit().remove("order").apply()

@@ -100,6 +100,24 @@ class MainActivity : Activity() {
         applyPrefs()
         reload(focused?.pkg)
         handler.post(tick)
+        checkUpdateInBackground()
+    }
+
+    /** เช็คอัปเดตวันละ 2 ครั้ง ถ้ามีจะขึ้นจุดบนปุ่ม "ปรับแต่ง" */
+    private fun checkUpdateInBackground() {
+        showUpdateBadge()
+        if (System.currentTimeMillis() - prefs.lastUpdateCheck < 12 * 3600_000L) return
+        prefs.lastUpdateCheck = System.currentTimeMillis()
+        Thread {
+            val r = Updater.fetchLatest() ?: return@Thread
+            prefs.latestTag = r.tag
+            runOnUiThread { showUpdateBadge() }
+        }.start()
+    }
+
+    private fun showUpdateBadge() {
+        val has = prefs.latestTag.isNotEmpty() && Updater.isNewer(prefs.latestTag, Updater.currentVersion(this))
+        findViewById<TextView>(R.id.btnCustomize).text = if (has) "ปรับแต่ง  ●" else "ปรับแต่ง"
     }
 
     override fun onPause() {
@@ -133,6 +151,8 @@ class MainActivity : Activity() {
         adapter.labelMode = prefs.labels
         adapter.tileHeightPx = (prefs.tileHeightDp() * resources.displayMetrics.density).toInt()
         statusPill.visibility = if (prefs.showStatus) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.btnScreen).visibility = if (prefs.showScreenBtn) View.VISIBLE else View.GONE
+        adapter.cornerPx = prefs.cornerDp() * resources.displayMetrics.density
         if (!prefs.appColors) bg.setColors(DEFAULT_COLORS)
     }
 

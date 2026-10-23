@@ -16,6 +16,10 @@ class SettingsActivity : Activity() {
     private lateinit var prefs: Prefs
     private lateinit var hint: TextView
     private val rows = ArrayList<Pair<Opt, View>>()
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var latest: Updater.Release? = null
+    private var updateState = "กำลังตรวจสอบ…"
+    private var downloadId = -1L
 
     private class Opt(val title: String, val hint: String, val value: () -> String, val onClick: () -> Unit)
 
@@ -30,6 +34,8 @@ class SettingsActivity : Activity() {
 
         val onOff = { b: Boolean -> if (b) "เปิด" else "ปิด" }
         val opts = listOf(
+            Opt("อัปเดต", "ตรวจสอบเวอร์ชันใหม่จาก GitHub แล้วติดตั้งทับได้ทันที (ไม่เสียการตั้งค่า)",
+                { updateState }) { onUpdateClick() },
             Opt("ชื่อแอปใต้ไอคอน", "เลือกว่าจะแสดงชื่อแอปใต้ไอคอนเมื่อไหร่",
                 { arrayOf("ไม่แสดง", "เฉพาะที่เลือก", "แสดงตลอด")[prefs.labels] }) { prefs.labels = (prefs.labels + 1) % 3 },
             Opt("ขนาดไอคอน", "ไอคอนเล็กลง = เห็นแอปได้มากขึ้นในหน้าเดียว",
@@ -69,6 +75,55 @@ class SettingsActivity : Activity() {
         }
         refresh()
         rows.firstOrNull()?.second?.requestFocus()
+        checkUpdate()
+    }
+
+    override fun onDestroy() { handler.removeCallbacksAndMessages(null); super.onDestroy() }
+
+    private fun checkUpdate() {
+        updateState = "กำลังตรวจสอบ…"; refresh()
+        Thread {
+            val r = Updater.fetchLatest()
+            runOnUiThread {
+                latest = r
+                if (r != null) prefs.latestTag = r.tag
+                updateState = when {
+                    r == null -> "ตรวจสอบไม่ได้"
+                    Updater.isNewer(r.tag, Updater.currentVersion(this)) -> "มี ${r.tag} · กดเพื่ออัปเดต"
+                    else -> "เป็นเวอร์ชันล่าสุดแล้ว"
+                }
+                refresh()
+            }
+        }.start()
+    }
+
+    private fun onUpdateClick() {
+        val r = latest
+        if (r == null || !Updater.isNewer(r.tag, Updater.currentVersion(this))) { checkUpdate(); return }
+        if (downloadId >= 0) return
+        if (!packageManager.canRequestPackageInstalls()) {
+            toast("อนุญาตให้ divlab Launcher ติดตั้งแอปก่อน แล้วกดอัปเดตอีกครั้ง")
+            runCatching {
+                startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:$packageName")))
+            }
+            return
+        }
+        downloadId = Updater.download(this, r)
+        pollDownload()
+    }
+
+    private fun pollDownload() {
+        val (st, pct) = Updater.progress(this, downloadId)
+        when (st) {
+            android.app.DownloadManager.STATUS_SUCCESSFUL -> {
+                updateState = "ดาวน์โหลดเสร็จ · กำลังติดตั้ง"
+                if (!Updater.install(this, downloadId)) updateState = "ติดตั้งไม่ได้"
+                downloadId = -1
+            }
+            android.app.DownloadManager.STATUS_FAILED -> { updateState = "ดาวน์โหลดไม่สำเร็จ · กดลองใหม่"; downloadId = -1 }
+            else -> { updateState = "กำลังดาวน์โหลด $pct%"; handler.postDelayed(::pollDownload, 700) }
+        }
+        refresh()
     }
 
     override fun onResume() { super.onResume(); refresh() }
