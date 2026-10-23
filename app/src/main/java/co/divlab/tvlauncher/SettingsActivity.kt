@@ -119,13 +119,7 @@ class SettingsActivity : Activity() {
         val r = latest
         if (r == null || !Updater.isNewer(r.tag, Updater.currentVersion(this))) { checkUpdate(); return }
         if (downloadId >= 0) return
-        if (!packageManager.canRequestPackageInstalls()) {
-            toast("อนุญาตให้ divlab Launcher ติดตั้งแอปก่อน แล้วกดอัปเดตอีกครั้ง")
-            runCatching {
-                startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:$packageName")))
-            }
-            return
-        }
+        // ไม่เช็ค canRequestPackageInstalls() เพราะ TCL บางรุ่นรายงานผิด — ให้ตัวติดตั้งของระบบถามเองถ้ายังไม่ได้สิทธิ์
         downloadId = Updater.download(this, r)
         pollDownload()
     }

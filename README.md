@@ -58,6 +58,8 @@ adb -s $TV install -r divlab-launcher.apk
 ```bash
 # ให้ launcher เปิด/ปิด "แทนที่ปุ่ม Home" เองได้จากหน้าปรับแต่ง
 adb -s $TV shell pm grant co.divlab.tvlauncher android.permission.WRITE_SECURE_SETTINGS
+# ให้อัปเดตจากในแอปได้
+adb -s $TV shell appops set co.divlab.tvlauncher REQUEST_INSTALL_PACKAGES allow
 # ให้แสดงชื่อ Wi-Fi ได้
 adb -s $TV shell pm grant co.divlab.tvlauncher android.permission.ACCESS_FINE_LOCATION
 ```

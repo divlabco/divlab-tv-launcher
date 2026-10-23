@@ -33,5 +33,6 @@ if ! adb -s $TV install -r divlab-launcher.apk; then
 fi
 adb -s $TV shell pm grant co.divlab.tvlauncher android.permission.WRITE_SECURE_SETTINGS || true
 adb -s $TV shell pm grant co.divlab.tvlauncher android.permission.ACCESS_FINE_LOCATION || true
+adb -s $TV shell appops set co.divlab.tvlauncher REQUEST_INSTALL_PACKAGES allow || true
 adb -s $TV shell monkey -p co.divlab.tvlauncher 1 >/dev/null
 adb -s $TV shell dumpsys package co.divlab.tvlauncher | grep versionName
