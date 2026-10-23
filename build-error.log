@@ -1,0 +1,18 @@
+build	Decode keystore	﻿2026-10-23T19:59:30.4627951Z ##[group]Run test -n "$KEYSTORE_BASE64" || { echo "::error::ยังไม่ได้ตั้ง secret KEYSTORE_BASE64"; exit 1; }
+build	Decode keystore	2026-10-23T19:59:30.4628458Z ^[[36;1mtest -n "$KEYSTORE_BASE64" || { echo "::error::ยังไม่ได้ตั้ง secret KEYSTORE_BASE64"; exit 1; }^[[0m
+build	Decode keystore	2026-10-23T19:59:30.4628808Z ^[[36;1mecho "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"^[[0m
+build	Decode keystore	2026-10-23T19:59:30.4864928Z shell: /usr/bin/bash -e {0}
+build	Decode keystore	2026-10-23T19:59:30.4865187Z env:
+build	Decode keystore	2026-10-23T19:59:30.4865425Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+build	Decode keystore	2026-10-23T19:59:30.4865748Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+build	Decode keystore	2026-10-23T19:59:30.4866026Z   GRADLE_ACTION_ID: gradle/actions/setup-gradle
+build	Decode keystore	2026-10-23T19:59:30.4866241Z   GRADLE_USER_HOME: /home/runner/.gradle
+build	Decode keystore	2026-10-23T19:59:30.4866437Z   GRADLE_BUILD_ACTION_SETUP_COMPLETED: true
+build	Decode keystore	2026-10-23T19:59:30.4866642Z   GRADLE_BUILD_ACTION_CACHE_RESTORED: true
+build	Decode keystore	2026-10-23T19:59:30.4866928Z   DEVELOCITY_INJECTION_INIT_SCRIPT_NAME: gradle-actions.inject-develocity.init.gradle
+build	Decode keystore	2026-10-23T19:59:30.4867501Z   DEVELOCITY_INJECTION_CUSTOM_VALUE: gradle-actions
+build	Decode keystore	2026-10-23T19:59:30.4867718Z   GITHUB_DEPENDENCY_GRAPH_ENABLED: false
+build	Decode keystore	2026-10-23T19:59:30.4867911Z   KEYSTORE_BASE64: 
+build	Decode keystore	2026-10-23T19:59:30.4868068Z ##[endgroup]
+build	Decode keystore	2026-10-23T19:59:30.4963170Z ##[error]ยังไม่ได้ตั้ง secret KEYSTORE_BASE64
+build	Decode keystore	2026-10-23T19:59:30.4966409Z ##[error]Process completed with exit code 1.
