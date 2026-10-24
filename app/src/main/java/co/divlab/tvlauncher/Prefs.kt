@@ -45,6 +45,10 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("showScreenBtn", true)
         set(v) = sp.edit().putBoolean("showScreenBtn", v).apply()
 
+    var showAirplayBtn: Boolean
+        get() = sp.getBoolean("showAirplayBtn", true)
+        set(v) = sp.edit().putBoolean("showAirplayBtn", v).apply()
+
     /** 0 = เหลี่ยม, 1 = มน, 2 = มนมาก, 3 = แคปซูล */
     var iconShape: Int
         get() = sp.getInt("iconShape", 1)

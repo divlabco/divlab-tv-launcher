@@ -104,6 +104,9 @@ class MainActivity : Activity() {
         findViewById<View>(R.id.btnSettings).setOnClickListener { launch(Intent(Settings.ACTION_SETTINGS)) }
         findViewById<View>(R.id.btnScreen).setOnClickListener { openScreenShare() }
         findViewById<View>(R.id.btnSleep).setOnClickListener { showSleepMenu() }
+        findViewById<View>(R.id.btnAirplay).setOnClickListener {
+            openOrInstall(listOf("com.ionitech.airscreen"), "com.ionitech.airscreen", "AirScreen")
+        }
         findViewById<View>(R.id.btnCustomize).setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
 
         watchNetwork()
@@ -157,6 +160,7 @@ class MainActivity : Activity() {
         adapter.cornerPx = prefs.cornerDp() * resources.displayMetrics.density
         statusPill.visibility = if (prefs.showStatus) View.VISIBLE else View.GONE
         findViewById<View>(R.id.btnScreen).visibility = if (prefs.showScreenBtn) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.btnAirplay).visibility = if (prefs.showAirplayBtn) View.VISIBLE else View.GONE
         if (prefs.theme != 0) bg.setColors(Themes.palettes[prefs.theme])
         findViewById<TextView>(R.id.btnInput).text = L.t("แหล่งสัญญาณ", "Inputs")
         findViewById<TextView>(R.id.btnSettings).text = L.t("ตั้งค่าทีวี", "TV Settings")
@@ -433,11 +437,21 @@ class MainActivity : Activity() {
             Toast.makeText(this, L.t("ไม่พบหน้าเลือกแหล่งสัญญาณ", "Input picker not found"), Toast.LENGTH_SHORT).show()
     }
 
-    private fun openScreenShare() {
-        val i = listOf("ph.spacedesk.beta", "ph.spacedesk.viewer", "com.limelight")
-            .firstNotNullOfOrNull { packageManager.getLeanbackLaunchIntentForPackage(it) ?: packageManager.getLaunchIntentForPackage(it) }
-        if (i != null) launch(i)
-        else Toast.makeText(this, L.t("ติดตั้ง spacedesk หรือ Moonlight ก่อน", "Install spacedesk or Moonlight first"), Toast.LENGTH_LONG).show()
+    private fun openScreenShare() =
+        openOrInstall(listOf("ph.spacedesk.beta", "ph.spacedesk.viewer", "com.limelight"), "ph.spacedesk.beta", "spacedesk")
+
+    /** เปิดแอปตัวแรกที่มี ถ้าไม่มีเลย → ถามแล้วพาไปหน้าดาวน์โหลดใน Play Store */
+    private fun openOrInstall(pkgs: List<String>, storePkg: String, name: String) {
+        val i = pkgs.firstNotNullOfOrNull { packageManager.getLeanbackLaunchIntentForPackage(it) ?: packageManager.getLaunchIntentForPackage(it) }
+        if (i != null) { launch(i); return }
+        AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle(name)
+            .setMessage(L.t("ยังไม่ได้ติดตั้ง $name — ไปหน้าดาวน์โหลดใน Play Store ไหม?", "$name isn't installed. Open it in the Play Store?"))
+            .setPositiveButton(L.t("ไปดาวน์โหลด", "Get it")) { _, _ ->
+                if (!launch(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$storePkg")), quiet = true))
+                    launch(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$storePkg")))
+            }
+            .setNegativeButton(L.t("ยกเลิก", "Cancel"), null).show()
     }
 
     private fun launch(i: Intent, quiet: Boolean = false): Boolean = try {
@@ -501,7 +515,7 @@ class MainActivity : Activity() {
     }
 
     companion object {
-        private val TOP_BUTTONS = intArrayOf(R.id.btnInput, R.id.btnWifi, R.id.btnSettings, R.id.btnScreen, R.id.btnSleep, R.id.btnCustomize)
+        private val TOP_BUTTONS = intArrayOf(R.id.btnInput, R.id.btnWifi, R.id.btnSettings, R.id.btnScreen, R.id.btnAirplay, R.id.btnSleep, R.id.btnCustomize)
         val DEFAULT_COLORS = Themes.palettes[1]
     }
 }

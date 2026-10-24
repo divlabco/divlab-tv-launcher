@@ -16,6 +16,7 @@
         <TextView android:id="@+id/btnWifi" style="@style/Pill" android:drawableStart="@drawable/ic_wifi" android:drawablePadding="8dp" android:drawableTint="@color/pill_text" android:text="Wi-Fi" />
         <TextView android:id="@+id/btnSettings" style="@style/Pill" android:drawableStart="@drawable/ic_gear" android:drawablePadding="8dp" android:drawableTint="@color/pill_text" android:text="ตั้งค่าทีวี" />
         <TextView android:id="@+id/btnScreen" style="@style/Pill" android:text="จอ PC" />
+        <TextView android:id="@+id/btnAirplay" style="@style/Pill" android:text="AirPlay" />
         <TextView android:id="@+id/btnSleep" style="@style/Pill" android:text="ตั้งเวลาปิด" />
         <TextView android:id="@+id/btnCustomize" style="@style/Pill" android:text="ปรับแต่ง" />
         <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />

@@ -73,6 +73,8 @@ class SettingsActivity : Activity() {
                 { onOff(prefs.showStatus) }) { prefs.showStatus = !prefs.showStatus },
             Row({ L.t("ปุ่มจอ PC", "PC Screen button") }, { L.t("ปุ่มเปิด spacedesk / Moonlight ที่แถบด้านบน", "Top-bar button for spacedesk / Moonlight") },
                 { onOff(prefs.showScreenBtn) }) { prefs.showScreenBtn = !prefs.showScreenBtn },
+            Row({ L.t("ปุ่ม AirPlay", "AirPlay button") }, { L.t("ปุ่มเปิด AirScreen รับภาพจาก iPhone/iPad/Mac (ถ้ายังไม่มีจะพาไปดาวน์โหลด)", "Opens AirScreen to receive from iPhone/iPad/Mac (offers to install it if missing)") },
+                { onOff(prefs.showAirplayBtn) }) { prefs.showAirplayBtn = !prefs.showAirplayBtn },
             Row({ L.t("แสดงแอปที่ซ่อน", "Show hidden apps") }, { L.t("แสดงแบบจาง ๆ เพื่อเลิกซ่อน", "Shown dimmed so you can unhide them") },
                 { onOff(prefs.showHidden) }) { prefs.showHidden = !prefs.showHidden },
             Row({ L.t("แทนที่ปุ่ม Home", "Replace Home button") }, { L.t("ปุ่ม Home บนรีโมตเปิด launcher นี้ (ต้องเปิดเพื่อใช้ตั้งเวลาปิดด้วย)", "Remote Home opens this launcher (also needed for the sleep timer)") },
