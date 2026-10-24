@@ -163,8 +163,15 @@ class MainActivity : Activity() {
         findViewById<View>(R.id.btnAirplay).visibility = if (prefs.showAirplayBtn) View.VISIBLE else View.GONE
         if (prefs.theme != 0) bg.setColors(Themes.palettes[prefs.theme])
         findViewById<TextView>(R.id.btnInput).text = L.t("แหล่งสัญญาณ", "Inputs")
-        findViewById<TextView>(R.id.btnSettings).text = L.t("ตั้งค่าทีวี", "TV Settings")
-        findViewById<TextView>(R.id.btnScreen).text = L.t("จอ PC", "PC Screen")
+        mapOf(R.id.btnWifi to "Wi-Fi", R.id.btnSettings to L.t("ตั้งค่าทีวี", "TV Settings"),
+            R.id.btnScreen to L.t("จอ PC", "PC Screen"), R.id.btnAirplay to "AirPlay",
+            R.id.btnSleep to L.t("ตั้งเวลาปิด", "Sleep timer"), R.id.btnCustomize to L.t("ปรับแต่ง", "Customize"))
+            .forEach { (id, name) ->
+                val b = findViewById<View>(id)
+                b.contentDescription = name
+                // ปุ่มไอคอน: แสดงชื่อปุ่มตรงหัวข้อใหญ่เมื่อเลือก
+                b.setOnFocusChangeListener { _, f -> if (f) heroTitle.text = name }
+            }
         updateClock()
     }
 
@@ -378,9 +385,15 @@ class MainActivity : Activity() {
 
     private fun updateSleepPill() {
         val left = prefs.sleepAt - System.currentTimeMillis()
-        findViewById<TextView>(R.id.btnSleep).text = if (prefs.sleepAt > 0 && left > 0)
-            L.t("⏾ ปิดใน ${(left / 60_000) + 1} นาที", "⏾ Off in ${(left / 60_000) + 1} min")
-        else L.t("ตั้งเวลาปิด", "Sleep")
+        setIconText(R.id.btnSleep, if (prefs.sleepAt > 0 && left > 0)
+            L.t("${(left / 60_000) + 1} นาที", "${(left / 60_000) + 1} min") else "")
+    }
+
+    /** ปุ่มไอคอนที่มีข้อความสั้น ๆ ต่อท้าย (เช่น เวลานับถอยหลัง) */
+    private fun setIconText(id: Int, text: String) {
+        val b = findViewById<TextView>(id)
+        b.text = text
+        b.compoundDrawablePadding = if (text.isEmpty()) 0 else (6 * resources.displayMetrics.density).toInt()
     }
 
     // ---------- สภาพอากาศ ----------
@@ -477,7 +490,7 @@ class MainActivity : Activity() {
 
     private fun showUpdateBadge() {
         val has = prefs.latestTag.isNotEmpty() && Updater.isNewer(prefs.latestTag, Updater.currentVersion(this))
-        findViewById<TextView>(R.id.btnCustomize).text = L.t("ปรับแต่ง", "Customize") + if (has) "  ●" else ""
+        setIconText(R.id.btnCustomize, if (has) "●" else "")
     }
 
     // ---------- เครือข่าย ----------

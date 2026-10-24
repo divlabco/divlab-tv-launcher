@@ -42,7 +42,6 @@ object Rows {
                 r.change(d); onAny(); true
             }
             v.setOnFocusChangeListener { _, f ->
-                v.animate().scaleX(if (f) 1.03f else 1f).scaleY(if (f) 1.03f else 1f).setDuration(120).start()
                 if (f) onHint(r.hint())
             }
             container.addView(v)
