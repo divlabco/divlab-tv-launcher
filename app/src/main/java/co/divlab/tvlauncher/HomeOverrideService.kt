@@ -49,7 +49,7 @@ class HomeOverrideService : AccessibilityService() {
 
     override fun onAccessibilityEvent(e: AccessibilityEvent) {
         if (e.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        if (e.packageName?.toString() in STOCK) goHome()
+        if (!allowStock && e.packageName?.toString() in STOCK) goHome()
     }
 
     override fun onInterrupt() {}
@@ -64,6 +64,24 @@ class HomeOverrideService : AccessibilityService() {
 
     companion object {
         @Volatile var instance: HomeOverrideService? = null
+
+        /** true = ปล่อยให้อยู่หน้า Home เดิมได้ (รีเซ็ตเมื่อกลับมาเปิด launcher นี้) */
+        @Volatile var allowStock = false
+
+        /** สลับไปหน้า Home เดิมชั่วคราว — คืน false ถ้าเปิดไม่ได้ */
+        fun openStockHome(ctx: Context): Boolean {
+            allowStock = true
+            for (pkg in STOCK) {
+                val i = ctx.packageManager.getLeanbackLaunchIntentForPackage(pkg)
+                    ?: ctx.packageManager.getLaunchIntentForPackage(pkg)
+                    ?: Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setPackage(pkg)
+                        .takeIf { it.resolveActivity(ctx.packageManager) != null }
+                    ?: continue
+                if (runCatching { ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess) return true
+            }
+            allowStock = false
+            return false
+        }
 
         val STOCK = setOf(
             "com.google.android.apps.tv.launcherx",

@@ -77,6 +77,11 @@ class SettingsActivity : Activity() {
                 { onOff(prefs.showHidden) }) { prefs.showHidden = !prefs.showHidden },
             Row({ L.t("แทนที่ปุ่ม Home", "Replace Home button") }, { L.t("ปุ่ม Home บนรีโมตเปิด launcher นี้ (ต้องเปิดเพื่อใช้ตั้งเวลาปิดด้วย)", "Remote Home opens this launcher (also needed for the sleep timer)") },
                 { onOff(HomeOverrideService.isEnabled(this)) }) { toggleHome() },
+            Row({ L.t("สลับไปหน้า Home เดิม", "Switch to original Home") },
+                { L.t("เปิดหน้า Google TV เดิม — กลับมาได้โดยเปิด divlab Launcher จากรายการแอป", "Open the original Google TV home. Come back by opening divlab Launcher from your apps.") },
+                { "" }, choice = false) {
+                if (!HomeOverrideService.openStockHome(this)) toast(L.t("ไม่พบหน้า Home เดิม (อาจถูกปิดไว้ด้วย adb)", "Original Home not found (disabled via adb?)"))
+            },
             Row({ L.t("แนะนำการใช้งาน", "Setup guide") }, { L.t("เปิดหน้าแนะนำและตั้งค่าสิทธิ์อีกครั้ง", "Run the welcome & permission guide again") },
                 { "" }, choice = false) { startActivity(Intent(this, OnboardingActivity::class.java)) },
             Row({ L.t("ล้างรายการเปิดล่าสุด", "Clear recents") }, { L.t("ลบประวัติแอปที่เปิดล่าสุด", "Forget recently opened apps") },

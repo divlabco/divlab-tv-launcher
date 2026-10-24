@@ -112,6 +112,7 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        HomeOverrideService.allowStock = false
         L.apply(prefs.language)
         applyPrefs()
         hideSaver()

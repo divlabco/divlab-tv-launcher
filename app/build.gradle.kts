@@ -9,8 +9,8 @@ android {
         applicationId = "co.divlab.tvlauncher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 12
-        versionName = "0.9.0"
+        versionCode = 13
+        versionName = "0.9.1"
     }
     val ks = System.getenv("KEYSTORE_FILE")
     signingConfigs {
