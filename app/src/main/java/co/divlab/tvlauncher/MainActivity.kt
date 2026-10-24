@@ -57,6 +57,7 @@ class MainActivity : Activity() {
     private var weather: Weather.Now? = null
     private var weatherAt = 0L
     private var saverStep = 0
+    private var backLongDone = false
 
     private val tick = object : Runnable {
         override fun run() {
@@ -97,7 +98,8 @@ class MainActivity : Activity() {
         grid.adapter = adapter
         grid.itemAnimator = null
 
-        findViewById<View>(R.id.btnInput).setOnClickListener { openInputs() }
+        val inputs = InputsMenu(this) { openInputs() }
+        findViewById<View>(R.id.btnInput).setOnClickListener { inputs.show(it) }
         findViewById<View>(R.id.btnWifi).setOnClickListener { launch(Intent(Settings.ACTION_WIFI_SETTINGS)) }
         findViewById<View>(R.id.btnSettings).setOnClickListener { launch(Intent(Settings.ACTION_SETTINGS)) }
         findViewById<View>(R.id.btnScreen).setOnClickListener { openScreenShare() }
@@ -171,15 +173,20 @@ class MainActivity : Activity() {
     private fun reload(focusPkg: String?) {
         val apps = repo.load(prefs.showHidden)
         val entries = ArrayList<Entry>()
+        val byPkg = apps.associateBy { it.pkg }
+        val favs = prefs.favorites().mapNotNull { byPkg[it] }.take(prefs.columns)
+        if (favs.isNotEmpty()) {
+            entries += Entry.Header(L.t("แอปโปรด", "Favorites"))
+            favs.forEach { entries += Entry.App(it, true, 0) }
+        }
         if (prefs.showRecent) {
-            val byPkg = apps.associateBy { it.pkg }
             val recent = prefs.recents().mapNotNull { byPkg[it] }.take(prefs.columns)
             if (recent.isNotEmpty()) {
                 entries += Entry.Header(L.t("เปิดล่าสุด", "Recent"))
-                recent.forEach { entries += Entry.App(it, true) }
-                entries += Entry.Header(L.t("แอปทั้งหมด", "All apps"))
+                recent.forEach { entries += Entry.App(it, true, 1) }
             }
         }
+        if (entries.isNotEmpty()) entries += Entry.Header(L.t("แอปทั้งหมด", "All apps"))
         apps.forEach { entries += Entry.App(it, false) }
         adapter.submit(entries)
 
@@ -203,6 +210,18 @@ class MainActivity : Activity() {
             return true
         }
         if (moving == null && e.action == KeyEvent.ACTION_DOWN && e.keyCode == KeyEvent.KEYCODE_DPAD_UP && jumpToTopBar()) return true
+        // กด Back ค้าง ~1 วินาทีบนหน้าแรก → สลับไปหน้า Home เดิม
+        if (moving == null && e.keyCode == KeyEvent.KEYCODE_BACK) {
+            if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0) backLongDone = false
+            // รีโมตบางรุ่นไม่ส่ง repeat → เช็คตอนปล่อยปุ่มด้วย
+            if (!backLongDone && e.eventTime - e.downTime >= 900) {
+                backLongDone = true
+                if (HomeOverrideService.openStockHome(this))
+                    Toast.makeText(this, L.t("สลับไปหน้า Home เดิม", "Switched to original Home"), Toast.LENGTH_SHORT).show()
+                else Toast.makeText(this, L.t("ไม่พบหน้า Home เดิม", "Original Home not found"), Toast.LENGTH_SHORT).show()
+            }
+            return true
+        }
         val pkg = moving ?: return super.dispatchKeyEvent(e)
         if (e.action != KeyEvent.ACTION_DOWN) return true
         val cols = prefs.columns
@@ -224,9 +243,10 @@ class MainActivity : Activity() {
         val pos = holder.bindingAdapterPosition
         val entries = adapter.entries
         val e = entries.getOrNull(pos) as? Entry.App ?: return false
-        val firstOfSection = entries.indexOfFirst { it is Entry.App && it.recent == e.recent }
-        val inFirstRow = pos - firstOfSection < prefs.columns
-        if (!inFirstRow || (!e.recent && entries.any { it is Entry.App && it.recent })) return false
+        val topSection = (entries.firstOrNull { it is Entry.App } as? Entry.App)?.section ?: return false
+        if (e.section != topSection) return false
+        val firstOfSection = entries.indexOfFirst { it is Entry.App && it.section == e.section }
+        if (pos - firstOfSection >= prefs.columns) return false
         val loc = IntArray(2); cur.getLocationOnScreen(loc)
         val cx = loc[0] + cur.width / 2
         val target = TOP_BUTTONS.map { findViewById<View>(it) }.filter { it.isShown }.minByOrNull {
@@ -375,9 +395,11 @@ class MainActivity : Activity() {
     // ---------- เมนูแอป / เปิดแอป ----------
 
     private fun showMenu(app: AppItem) {
+        val fav = app.pkg in prefs.favorites()
         val items = arrayOf(L.t("ย้ายตำแหน่ง", "Move"),
             if (app.hidden) L.t("เลิกซ่อน", "Unhide") else L.t("ซ่อนแอปนี้", "Hide"),
-            L.t("ข้อมูลแอป", "App info"))
+            L.t("ข้อมูลแอป", "App info"),
+            if (fav) L.t("เลิกปักหมุดแอปโปรด", "Unpin from Favorites") else L.t("ปักหมุดเป็นแอปโปรด", "Pin to Favorites"))
         AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
             .setTitle(app.label)
             .setItems(items) { _, which ->
@@ -385,6 +407,11 @@ class MainActivity : Activity() {
                     0 -> startMove(app)
                     1 -> { repo.toggleHidden(app.pkg); reload(if (prefs.showHidden) app.pkg else null) }
                     2 -> launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${app.pkg}")))
+                    3 -> {
+                        if (prefs.toggleFavorite(app.pkg) && prefs.favorites().size > prefs.columns)
+                            Toast.makeText(this, L.t("แสดงแอปโปรดได้สูงสุด ${prefs.columns} ตัวต่อแถว", "Only ${prefs.columns} favorites fit in the row"), Toast.LENGTH_SHORT).show()
+                        reload(app.pkg)
+                    }
                 }
             }
             .show()
@@ -396,6 +423,7 @@ class MainActivity : Activity() {
 
     private fun openInputs() {
         val candidates = listOfNotNull(
+            packageManager.getLaunchIntentForPackage("com.tcl.suspension"),
             Intent("com.tcl.tv.action.SOURCE"),
             packageManager.getLeanbackLaunchIntentForPackage("com.tcl.tv"),
             packageManager.getLaunchIntentForPackage("com.tcl.tv"),

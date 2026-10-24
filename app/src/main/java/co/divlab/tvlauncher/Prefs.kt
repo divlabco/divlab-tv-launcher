@@ -98,6 +98,16 @@ class Prefs(ctx: Context) {
         get() = sp.getString("latestTag", "")!!
         set(v) = sp.edit().putString("latestTag", v).apply()
 
+    fun favorites(): List<String> = sp.getString("favorites", "")!!.split(",").filter { it.isNotEmpty() }
+
+    /** ปัก/เลิกปักแอปโปรด — คืนค่า true ถ้าปักแล้ว */
+    fun toggleFavorite(pkg: String): Boolean {
+        val l = favorites().toMutableList()
+        val pinned = if (l.remove(pkg)) false else { l += pkg; true }
+        sp.edit().putString("favorites", l.joinToString(",")).apply()
+        return pinned
+    }
+
     fun clearRecents() = sp.edit().remove("recents").apply()
     fun resetOrder() = sp.edit().remove("order").apply()
 }

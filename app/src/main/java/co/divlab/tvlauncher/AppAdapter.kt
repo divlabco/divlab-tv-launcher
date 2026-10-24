@@ -10,7 +10,8 @@ import androidx.recyclerview.widget.RecyclerView
 
 sealed class Entry {
     data class Header(val title: String) : Entry()
-    data class App(val app: AppItem, val recent: Boolean) : Entry()
+    /** section: 0 = แอปโปรด, 1 = เปิดล่าสุด, 2 = แอปทั้งหมด (recent = ไม่ใช่ส่วนแอปทั้งหมด) */
+    data class App(val app: AppItem, val recent: Boolean, val section: Int = if (recent) 1 else 2) : Entry()
 }
 
 class AppAdapter(

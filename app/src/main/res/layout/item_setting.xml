@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="wrap_content"
     android:orientation="horizontal" android:gravity="center_vertical"
-    android:minHeight="56dp" android:paddingStart="20dp" android:paddingEnd="20dp"
+    android:minHeight="56dp" android:layout_marginBottom="6dp" android:paddingStart="20dp" android:paddingEnd="20dp"
     android:background="@drawable/row_bg" android:focusable="true" android:clickable="true">
     <TextView android:id="@+id/title" android:layout_width="0dp" android:layout_weight="1"
         android:layout_height="wrap_content" android:duplicateParentState="true"

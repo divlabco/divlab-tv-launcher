@@ -64,8 +64,8 @@ class OnboardingActivity : Activity() {
             1 -> {
                 title.text = L.t("วิธีใช้", "How it works")
                 body.text = L.t(
-                    "• กด OK เพื่อเปิดแอป\n• กดค้าง OK → ย้ายตำแหน่ง แล้วใช้ลูกศรจัดเรียง\n• กดค้าง OK → ซ่อนแอปที่ไม่ใช้\n• ปุ่ม \"ปรับแต่ง\" ด้านบน: ธีม รูปทรงไอคอน อากาศ พักหน้าจอ ฯลฯ\n• ในหน้าปรับแต่ง ใช้ ◀ ▶ เปลี่ยนค่า",
-                    "• Press OK to open an app\n• Hold OK → Move, then use arrows to reorder\n• Hold OK → Hide apps you don't use\n• \"Customize\" on top: theme, icon shape, weather, screensaver…\n• In Customize, use ◀ ▶ to change values")
+                    "• กด OK เพื่อเปิดแอป\n• กดค้าง OK → ย้ายตำแหน่ง แล้วใช้ลูกศรจัดเรียง\n• กดค้าง OK → ซ่อนแอปที่ไม่ใช้\n• ปุ่ม \"ปรับแต่ง\" ด้านบน: ธีม รูปทรงไอคอน อากาศ พักหน้าจอ ฯลฯ\n• ในหน้าปรับแต่ง ใช้ ◀ ▶ เปลี่ยนค่า\n• กด Back ค้างบนหน้าแรก = สลับไปหน้า Home เดิม",
+                    "• Press OK to open an app\n• Hold OK → Move, then use arrows to reorder\n• Hold OK → Hide apps you don't use\n• \"Customize\" on top: theme, icon shape, weather, screensaver…\n• In Customize, use ◀ ▶ to change values\n• Hold Back on the home screen = switch to the original Home")
                 rows = listOf(next)
             }
             else -> {
